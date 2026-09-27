@@ -11,12 +11,13 @@ build/
 *.js
 *.js.map
 generated/
-.prisma/
+.prisma/client/
 
 # Environment
 .env
 .env.local
 .env.*.local
+!*.env.example
 
 # IDE
 .vscode/
@@ -38,8 +39,17 @@ yarn-error.log*
 coverage/
 .nyc_output/
 
-# Prisma
-prisma/migrations/manual_backup/
+# Database
+dev.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads
+storage/uploads/
+
+# Prisma migrations (keep schema, not generated)
+packages/db/prisma/migrations/
 
 # Temporary files
 tmp/

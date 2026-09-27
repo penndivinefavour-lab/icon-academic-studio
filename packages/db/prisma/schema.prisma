@@ -1,4 +1,5 @@
 // This is your Prisma schema file for ICON Academic Studio
+// Uses SQLite for local development; PostgreSQL for production.
 // Learn more: https://pris.ly/d/prisma-schema
 
 generator client {
@@ -6,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -15,27 +16,22 @@ datasource db {
 // ============================================================================
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
+  id            String   @id @default(cuid())
+  email         String   @unique
   passwordHash  String
   name          String?
   avatarUrl     String?
-  role          Role      @default(USER)
-  isActive      Boolean   @default(true)
+  role          String   @default("USER") // ADMIN | USER
+  isActive      Boolean  @default(true)
   lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   workspaces    Workspace[]
   reviewItems   ReviewItem[]
 
   @@index([email])
   @@map("users")
-}
-
-enum Role {
-  ADMIN
-  USER
 }
 
 // ============================================================================
@@ -61,17 +57,17 @@ model Workspace {
 // ============================================================================
 
 model Project {
-  id            String         @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String
   description   String?
-  type          ProjectType
+  type          String   // GCE_STUDY_GUIDE, BOOK, THESIS, etc.
   workspaceId   String?
-  settings      Json           @default("{}")
-  status        ProjectStatus  @default(DRAFT)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  settings      String   @default("{}") // JSON string
+  status        String   @default("DRAFT") // DRAFT, IN_PROGRESS, REVIEW, COMPLETED, ARCHIVED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  workspace     Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   sources       Source[]
   documents     Document[]
   datasets      Dataset[]
@@ -87,55 +83,25 @@ model Project {
   @@map("projects")
 }
 
-enum ProjectType {
-  GCE_STUDY_GUIDE
-  GCE_PAMPHLET
-  PAST_PAPER_ANALYSIS
-  REVISION_NOTES
-  QUESTION_BANK
-  MOCK_EXAMINATION
-  TEXTBOOK
-  BOOK
-  RESEARCH_PROJECT
-  HND_PROJECT
-  THESIS
-  RESEARCH_PROPOSAL
-  SEMINAR_PAPER
-  INTERNSHIP_REPORT
-  QUESTIONNAIRE
-  INTERVIEW_GUIDE
-  DATA_ANALYSIS
-  GENERAL_DOCUMENT
-  CUSTOM
-}
-
-enum ProjectStatus {
-  DRAFT
-  IN_PROGRESS
-  REVIEW
-  COMPLETED
-  ARCHIVED
-}
-
 // ============================================================================
 // SOURCES
 // ============================================================================
 
 model Source {
-  id               String         @id @default(cuid())
+  id               String   @id @default(cuid())
   projectId        String
   name             String
-  type             SourceType
+  type             String   // PDF, DOCX, TXT, MARKDOWN, CSV, XLSX, IMAGE, WEB, NOTE, MANUAL
   mimeType         String?
   sizeBytes        Int
   filePath         String?
-  contentPreview   String?        @db.Text
-  metadata         Json           @default("{}")
-  status           SourceStatus   @default(UPLOADED)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  contentPreview   String?
+  metadata         String   @default("{}") // JSON string
+  status           String   @default("UPLOADED") // UPLOADED, PROCESSING, PROCESSED, ERROR, DELETED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   chunks           SourceChunk[]
   citations        Citation[]
   evidenceItems    EvidenceItem[]
@@ -145,33 +111,12 @@ model Source {
   @@map("sources")
 }
 
-enum SourceType {
-  PDF
-  DOCX
-  TXT
-  MARKDOWN
-  CSV
-  XLSX
-  IMAGE
-  WEB
-  NOTE
-  MANUAL
-}
-
-enum SourceStatus {
-  UPLOADED
-  PROCESSING
-  PROCESSED
-  ERROR
-  DELETED
-}
-
 model SourceChunk {
   id         String   @id @default(cuid())
   sourceId   String
   index      Int
-  content    String   @db.Text
-  metadata   Json     @default("{}")
+  content    String
+  metadata   String   @default("{}") // JSON string
   createdAt  DateTime @default(now())
 
   source     Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
@@ -185,56 +130,27 @@ model SourceChunk {
 // ============================================================================
 
 model Document {
-  id          String        @id @default(cuid())
-  projectId   String
-  title       String
-  type        DocumentType
-  structure   Json          @default("{}")
-  settings    Json          @default("{}")
-  status      DocumentStatus @default(DRAFT)
-  version     Int           @default(1)
-  wordCount   Int           @default(0)
-  formattingProfileId String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id                    String   @id @default(cuid())
+  projectId             String
+  title                 String
+  type                  String   // CHAPTER, SECTION, etc.
+  structure             String   @default("{}") // JSON string
+  settings              String   @default("{}") // JSON string
+  status                String   @default("DRAFT") // DRAFT, REVIEW, EDITED, PROOF, TYPESET, FINAL
+  version               Int      @default(1)
+  wordCount             Int      @default(0)
+  formattingProfileId   String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  formattingProfile FormattingProfile? @relation(fields: [formattingProfileId], references: [id])
-  reviewItems ReviewItem[]
-  exports     ExportJob[]
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  formattingProfile     FormattingProfile? @relation(fields: [formattingProfileId], references: [id])
+  reviewItems           ReviewItem[]
+  exports               ExportJob[]
 
   @@index([projectId])
   @@index([status])
   @@map("documents")
-}
-
-enum DocumentType {
-  CHAPTER
-  SECTION
-  SUBSECTION
-  PARAGRAPH
-  APPENDIX
-  PREFACE
-  INTRODUCTION
-  LITERATURE_REVIEW
-  METHODOLOGY
-  RESULTS
-  DISCUSSION
-  CONCLUSION
-  REFERENCES
-  BIBLIOGRAPHY
-  GLOSSARY
-  INDEX
-  COVER
-}
-
-enum DocumentStatus {
-  DRAFT
-  REVIEW
-  EDITED
-  PROOF
-  TYPESET
-  FINAL
 }
 
 // ============================================================================
@@ -242,7 +158,7 @@ enum DocumentStatus {
 // ============================================================================
 
 model Citation {
-  id          String      @id @default(cuid())
+  id          String   @id @default(cuid())
   sourceId    String
   author      String?
   year        String?
@@ -250,23 +166,16 @@ model Citation {
   url         String?
   doi         String?
   pageRange   String?
-  format      CitationFormat
-  raw         String      @db.Text
-  verified    Boolean     @default(false)
-  context     String?     @db.Text
-  createdAt   DateTime    @default(now())
+  format      String   // INLINE, FOOTNOTE, ENDNOTE, BIBLIOGRAPHY
+  raw         String
+  verified    Boolean  @default(false)
+  context     String?
+  createdAt   DateTime @default(now())
 
-  source      Source      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  source      Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@index([sourceId])
   @@map("citations")
-}
-
-enum CitationFormat {
-  INLINE
-  FOOTNOTE
-  ENDNOTE
-  BIBLIOGRAPHY
 }
 
 // ============================================================================
@@ -274,33 +183,33 @@ enum CitationFormat {
 // ============================================================================
 
 model ResearchNote {
-  id          String    @id @default(cuid())
-  projectId   String
-  title       String
-  content     String    @db.Text
-  tags        Json      @default("[]")
-  sources     Json      @default("[]")
-  linkedDocuments Json  @default("[]")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String   @id @default(cuid())
+  projectId       String
+  title           String
+  content         String
+  tags            String   @default("[]") // JSON array string
+  sources         String   @default("[]") // JSON array of source IDs
+  linkedDocuments String   @default("[]") // JSON array of document IDs
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@map("research_notes")
 }
 
 model ResearchQuestion {
-  id          String                @id @default(cuid())
+  id          String   @id @default(cuid())
   projectId   String
-  question    String                @db.Text
-  hypothesis  String?               @db.Text
-  status      ResearchQuestionStatus @default(OPEN)
-  notes       String?               @db.Text
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  question    String
+  hypothesis  String?
+  status      String   @default("OPEN") // OPEN, INVESTIGATING, ANSWERED, CLOSED
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  project     Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   evidenceItems EvidenceItem[]
 
   @@index([projectId])
@@ -308,21 +217,14 @@ model ResearchQuestion {
   @@map("research_questions")
 }
 
-enum ResearchQuestionStatus {
-  OPEN
-  INVESTIGATING
-  ANSWERED
-  CLOSED
-}
-
 model EvidenceItem {
-  id                 String           @id @default(cuid())
+  id                 String   @id @default(cuid())
   researchQuestionId String
   sourceId           String
-  claim              String           @db.Text
-  supportingEvidence String           @db.Text
-  strength           EvidenceStrength
-  createdAt          DateTime         @default(now())
+  claim              String
+  supportingEvidence String
+  strength           String   // STRONG, MODERATE, WEAK, UNCERTAIN
+  createdAt          DateTime @default(now())
 
   researchQuestion   ResearchQuestion @relation(fields: [researchQuestionId], references: [id], onDelete: Cascade)
   source             Source           @relation(fields: [sourceId], references: [id], onDelete: Cascade)
@@ -332,31 +234,24 @@ model EvidenceItem {
   @@map("evidence_items")
 }
 
-enum EvidenceStrength {
-  STRONG
-  MODERATE
-  WEAK
-  UNCERTAIN
-}
-
 // ============================================================================
 // DATASETS & ANALYSIS
 // ============================================================================
 
 model Dataset {
-  id          String     @id @default(cuid())
+  id          String   @id @default(cuid())
   projectId   String
   name        String
   description String?
-  file        Json?
-  columns     Json       @default("[]")
-  rowCount    Int        @default(0)
-  preview     Json       @default("[]")
-  analysis    Json?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  file        String?  // JSON string
+  columns     String   @default("[]") // JSON array string
+  rowCount    Int      @default(0)
+  preview     String   @default("[]") // JSON array string
+  analysis    String?  // JSON string
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   analyses    Analysis[]
   charts      Chart[]
   tables      Table_[]
@@ -365,23 +260,13 @@ model Dataset {
   @@map("datasets")
 }
 
-enum ColumnType {
-  STRING
-  NUMBER
-  BOOLEAN
-  DATE
-  DATETIME
-  CATEGORICAL
-  ORDINAL
-}
-
 model Analysis {
   id          String   @id @default(cuid())
   datasetId   String
   method      String
-  parameters  Json     @default("{}")
-  results     Json     @default("{}")
-  notes       String?  @db.Text
+  parameters  String   @default("{}") // JSON string
+  results     String   @default("{}") // JSON string
+  notes       String?
   createdAt   DateTime @default(now())
 
   dataset     Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
@@ -391,38 +276,29 @@ model Analysis {
 }
 
 model Chart {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   datasetId   String
-  type        ChartType
-  config      Json      @default("{}")
-  data        Json      @default("[]")
+  type        String   // BAR, LINE, PIE, etc.
+  config      String   @default("{}") // JSON string
+  data        String   @default("[]") // JSON array string
   imageUrl    String?
   title       String?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime @default(now())
 
-  dataset     Dataset   @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  dataset     Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
 
   @@index([datasetId])
   @@map("charts")
-}
-
-enum ChartType {
-  BAR
-  LINE
-  PIE
-  SCATTER
-  HISTOGRAM
-  BOX_PLOT
 }
 
 model Table_ {
   id        String   @id @default(cuid())
   datasetId String
   title     String
-  headers   Json     @default("[]")
-  rows      Json     @default("[]")
+  headers   String   @default("[]") // JSON array string
+  rows      String   @default("[]") // JSON array string
   caption   String?
-  note      String?  @db.Text
+  note      String?
   createdAt DateTime @default(now())
 
   dataset   Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
@@ -436,44 +312,36 @@ model Table_ {
 // ============================================================================
 
 model AIProvider {
-  id          String              @id @default(cuid())
-  name        String
-  type        AIProviderType
-  endpoint    String
-  apiKeyId    String?
-  capabilities Json               @default("{}")
-  isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  type         String   // GEMINI, OPENAI, OPENROUTER, OLLAMA, CUSTOM
+  endpoint     String
+  apiKeyId     String?
+  capabilities String   @default("{}") // JSON string
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  models      AIModel[]
-  apiKeys     APIKey[]
+  models_list  AIModel[]
+  apiKeys      APIKey[]
 
   @@map("ai_providers")
 }
 
-enum AIProviderType {
-  GEMINI
-  OPENAI
-  OPENROUTER
-  OLLAMA
-  CUSTOM
-}
-
 model AIModel {
-  id           String         @id @default(cuid())
+  id           String   @id @default(cuid())
   providerId   String
   name         String
   identifier   String
-  capabilities Json           @default("{}")
+  capabilities String   @default("{}") // JSON string
   contextWindow Int
   maxTokens    Int?
-  costPerToken Json?
-  isDefault    Boolean        @default(false)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  costPerToken String?  // JSON string
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  provider     AIProvider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider     AIProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@index([providerId])
   @@map("ai_models")
@@ -483,7 +351,7 @@ model APIKey {
   id          String   @id @default(cuid())
   providerId  String
   keyName     String
-  keyPrefix   String
+  keyPrefix   String   // first 4 chars only
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -498,30 +366,22 @@ model APIKey {
 // ============================================================================
 
 model Template {
-  id          String        @id @default(cuid())
+  id          String   @id @default(cuid())
   projectId   String?
   name        String
   description String?
-  type        TemplateType
-  projectType ProjectType
-  structure   Json          @default("{}")
-  variables   Json          @default("[]")
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  type        String   // DOCUMENT, SECTION, EXAM, QUESTIONNAIRE, REPORT
+  projectType String   // project type this template applies to
+  structure   String   @default("{}") // JSON string
+  variables   String   @default("[]") // JSON array string
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  project     Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([type])
   @@index([projectType])
   @@map("templates")
-}
-
-enum TemplateType {
-  DOCUMENT
-  SECTION
-  EXAM
-  QUESTIONNAIRE
-  REPORT
 }
 
 // ============================================================================
@@ -529,30 +389,20 @@ enum TemplateType {
 // ============================================================================
 
 model FormattingProfile {
-  id          String       @id @default(cuid())
+  id          String   @id @default(cuid())
   projectId   String?
   name        String
   description String?
-  preset      FormattingPreset?
-  custom      Json         @default("{}")
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  preset      String?  // APA, MLA, CHICAGO, etc.
+  custom      String   @default("{}") // JSON string
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   documents   Document[]
 
   @@index([projectId])
   @@map("formatting_profiles")
-}
-
-enum FormattingPreset {
-  APA
-  MLA
-  CHICAGO
-  HARVARD
-  IEEE
-  GBT7714
-  CUSTOM
 }
 
 // ============================================================================
@@ -560,25 +410,25 @@ enum FormattingPreset {
 // ============================================================================
 
 model Question {
-  id          String      @id @default(cuid())
-  projectId   String
-  type        QuestionType
-  subject     String
-  topic       String
-  subtopic    String?
-  year        Int?
-  paper       String?
-  marks       Int
-  difficulty  Difficulty
-  stem        String     @db.Text
-  options     Json?
-  answer      String?    @db.Text
-  markingScheme Json?
-  sources     Json       @default("[]")
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id            String   @id @default(cuid())
+  projectId     String
+  type          String   // MULTIPLE_CHOICE, SHORT_ANSWER, ESSAY, etc.
+  subject       String
+  topic         String
+  subtopic      String?
+  year          Int?
+  paper         String?
+  marks         Int
+  difficulty    String   // EASY, MEDIUM, HARD, EXPERT
+  stem          String
+  options       String?  // JSON string
+  answer        String?
+  markingScheme String?  // JSON string
+  sources       String   @default("[]") // JSON array string
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([subject])
@@ -587,29 +437,14 @@ model Question {
   @@map("questions")
 }
 
-enum QuestionType {
-  MULTIPLE_CHOICE
-  SHORT_ANSWER
-  ESSAY
-  CALCULATION
-  CASE_STUDY
-}
-
-enum Difficulty {
-  EASY
-  MEDIUM
-  HARD
-  EXPERT
-}
-
 model Syllabus {
-  id          String   @id @default(cuid())
-  subject     String
-  examBoard   String
-  year        Int
-  topics      Json     @default("[]")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id       String   @id @default(cuid())
+  subject  String
+  examBoard String
+  year     Int
+  topics   String   @default("[]") // JSON array string
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("syllabi")
 }
@@ -619,42 +454,23 @@ model Syllabus {
 // ============================================================================
 
 model GenerationJob {
-  id          String         @id @default(cuid())
+  id          String   @id @default(cuid())
   projectId   String
-  type        JobType
-  status      JobStatus      @default(PENDING)
-  input       Json           @default("{}")
-  output      Json?
-  error       String?        @db.Text
-  progress    Int?           @default(0)
+  type        String   // Job type
+  status      String   @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED, CANCELLED
+  input       String   @default("{}") // JSON string
+  output      String?  // JSON string
+  error       String?
+  progress    Int?     @default(0)
   startedAt   DateTime?
   completedAt DateTime?
-  createdAt   DateTime       @default(now())
+  createdAt   DateTime @default(now())
 
-  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([status])
   @@map("generation_jobs")
-}
-
-enum JobType {
-  GENERATE_SECTION
-  GENERATE_CHAPTER
-  GENERATE_QUESTION
-  ANALYZE_DATA
-  EXTRACT_SOURCE
-  FORMAT_DOCUMENT
-  EXPORT_DOCUMENT
-  REVIEW_CONTENT
-}
-
-enum JobStatus {
-  PENDING
-  RUNNING
-  COMPLETED
-  FAILED
-  CANCELLED
 }
 
 // ============================================================================
@@ -662,39 +478,23 @@ enum JobStatus {
 // ============================================================================
 
 model ReviewItem {
-  id          String          @id @default(cuid())
+  id          String   @id @default(cuid())
   documentId  String
   blockId     String?
-  type        ReviewType
-  status      ReviewStatus    @default(PENDING)
+  type        String   // FACT_CHECK, GRAMMAR, STYLE, etc.
+  status      String   @default("PENDING") // PENDING, ADDRESSED, RESOLVED, REJECTED
   reviewer    String?
-  feedback    String          @db.Text
-  resolution  String?         @db.Text
-  createdAt   DateTime        @default(now())
+  feedback    String
+  resolution  String?
+  createdAt   DateTime @default(now())
   resolvedAt  DateTime?
 
-  document    Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  user        User?           @relation(fields: [reviewer], references: [id])
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [reviewer], references: [id])
 
   @@index([documentId])
   @@index([status])
   @@map("review_items")
-}
-
-enum ReviewType {
-  FACT_CHECK
-  GRAMMAR
-  STYLE
-  CITATION
-  CONTENT
-  FORMATTING
-}
-
-enum ReviewStatus {
-  PENDING
-  ADDRESSED
-  RESOLVED
-  REJECTED
 }
 
 // ============================================================================
@@ -702,19 +502,19 @@ enum ReviewStatus {
 // ============================================================================
 
 model ExportJob {
-  id          String       @id @default(cuid())
+  id          String   @id @default(cuid())
   documentId  String?
   datasetId   String?
   templateId  String?
-  format      ExportFormat
-  status      ExportStatus @default(QUEUED)
+  format      String   // DOCX, PDF, MARKDOWN, HTML, TXT
+  status      String   @default("QUEUED") // QUEUED, PROCESSING, COMPLETED, FAILED
   outputPath  String?
-  error       String?      @db.Text
+  error       String?
   startedAt   DateTime?
   completedAt DateTime?
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime @default(now())
 
-  document    Document?    @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  document    Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
   artifacts   ExportArtifact[]
 
   @@index([documentId])
@@ -722,29 +522,14 @@ model ExportJob {
   @@map("export_jobs")
 }
 
-enum ExportFormat {
-  DOCX
-  PDF
-  MARKDOWN
-  HTML
-  TXT
-}
-
-enum ExportStatus {
-  QUEUED
-  PROCESSING
-  COMPLETED
-  FAILED
-}
-
 model ExportArtifact {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   jobId      String
-  format     ExportFormat
+  format     String
   path       String
   size       Int
   checksum   String
-  createdAt  DateTime  @default(now())
+  createdAt  DateTime @default(now())
 
   job        ExportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
@@ -762,7 +547,7 @@ model AuditLog {
   action      String
   entityType  String
   entityId    String?
-  changes     Json?
+  changes     String?  // JSON string
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime @default(now())
