@@ -50,8 +50,8 @@ storage/uploads/
 storage/datasets/
 *.db
 
-# Prisma migrations (keep schema, not generated)
-packages/db/prisma/migrations/
+# Prisma: keep generated client output out; migrations ARE committed (schema history)
+node_modules/.prisma/
 
 # Temporary files
 tmp/
