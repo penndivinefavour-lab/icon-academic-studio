@@ -102,6 +102,7 @@ model Source {
   updatedAt        DateTime @updatedAt
 
   project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  datasets         Dataset[]
   chunks           SourceChunk[]
   citations        Citation[]
   evidenceItems    EvidenceItem[]
@@ -303,23 +304,54 @@ model EvidenceItem {
 model Dataset {
   id          String   @id @default(cuid())
   projectId   String
+  sourceId    String?
   name        String
   description String?
-  file        String?  // JSON string
-  columns     String   @default("[]") // JSON array string
+  originalFilename String?
+  storedPath  String?
+  format      String   // CSV, XLSX
   rowCount    Int      @default(0)
-  preview     String   @default("[]") // JSON array string
-  analysis    String?  // JSON string
+  columnCount Int      @default(0)
+  fileSize    Int      @default(0)
+  checksum    String?
+  status      String   @default("IMPORTED") // IMPORTED, PROCESSING, PROFILED, ERROR
+  profile     String?  // JSON string with profiling results
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  source      Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  columns     DatasetColumn[]
   analyses    Analysis[]
   charts      Chart[]
   tables      Table_[]
+  transformations Transformation[]
+  resultTransformations Transformation[] @relation("TransformationResult")
 
   @@index([projectId])
+  @@index([status])
   @@map("datasets")
+}
+
+model DatasetColumn {
+  id            String   @id @default(cuid())
+  datasetId     String
+  name          String
+  originalName  String?
+  index         Int
+  inferredType  String   // NUMBER, TEXT, DATE, BOOLEAN, CATEGORICAL
+  nullable      Boolean  @default(true)
+  uniqueCount   Int      @default(0)
+  missingCount  Int      @default(0)
+  sampleValues  String   @default("[]") // JSON array
+  metadata      String   @default("{}") // JSON string for additional stats
+  createdAt     DateTime @default(now())
+
+  dataset       Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@index([datasetId])
+  @@index([index])
+  @@map("dataset_columns")
 }
 
 model Analysis {
@@ -514,6 +546,22 @@ model Syllabus {
 // ============================================================================
 // GENERATION JOBS
 // ============================================================================
+
+model Transformation {
+  id          String   @id @default(cuid())
+  datasetId   String
+  type        String   // RENAME_COLUMN, REMOVE_COLUMN, TRIM, CONVERT_TYPE, REPLACE_MISSING, REMOVE_DUPLICATES, FILTER_ROWS
+  config      String   // JSON configuration
+  resultDatasetId String?
+  createdAt   DateTime @default(now())
+
+  dataset     Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  result      Dataset? @relation("TransformationResult", fields: [resultDatasetId], references: [id], onDelete: SetNull)
+
+  @@index([datasetId])
+  @@index([createdAt])
+  @@map("transformations")
+}
 
 model GenerationJob {
   id          String   @id @default(cuid())

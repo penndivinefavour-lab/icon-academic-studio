@@ -318,14 +318,19 @@ async function extractSource(sourceId: string, filePath: string, fileType: strin
     }
 
     // Store extracted content
-    await prisma.source.update({
-      where: { id: sourceId },
-      data: {
-        contentPreview: content.substring(0, 10000),
-        status: status,
-        metadata: JSON.stringify({ ...JSON.parse((await prisma.source.findUnique({ where: { id: sourceId } })).metadata || '{}'), ...metadataObj, ...(status === 'ERROR' ? { error: errorMsg } : {}) }),
-      },
-    });
+    const source = await prisma.source.findUnique({ where: { id: sourceId } });
+    if (source) {
+      await prisma.source.update({
+        where: { id: sourceId },
+        data: {
+          contentPreview: content.substring(0, 10000),
+          status: status,
+          metadata: JSON.stringify({ ...JSON.parse(source.metadata || '{}'), ...metadataObj, ...(status === 'ERROR' ? { error: errorMsg } : {}) }),
+        },
+      });
+    } else {
+      throw new Error('Source not found for updating');
+    }
 
     // Chunk content
     await chunkSource(sourceId, content);
@@ -334,11 +339,10 @@ async function extractSource(sourceId: string, filePath: string, fileType: strin
     console.error(`Extraction error for source ${sourceId}:`, error);
     await prisma.source.update({
       where: { id: sourceId },
-      data: { 
+      data: {
         status: 'ERROR',
-        metadata: JSON.stringify({ 
-          ...(JSON.parse((await prisma.source.findUnique({ where: { id: sourceId } })).metadata || '{}')),
-          error: (error as Error).message 
+        metadata: JSON.stringify({
+          error: (error as Error).message
         })
       },
     });

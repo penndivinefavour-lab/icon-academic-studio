@@ -59,10 +59,11 @@ datasetsRouter.post('/', async (req: Request, res: Response) => {
         projectId,
         name,
         description,
-        file,
-        columns: columns || [],
+        originalFilename: file || null,
+        format: 'CSV',
         rowCount: rowCount || 0,
-        preview: preview || [],
+        columnCount: columns?.length || 0,
+        status: 'IMPORTED',
       },
     });
 

@@ -6,6 +6,7 @@ interface Block {
   type: string;
   content: string;
   order: number;
+  sectionId?: string | null;
   metadata?: any;
   provenance?: any;
 }
@@ -55,7 +56,7 @@ export default function DocumentStudio() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'unsaved' | 'error'>('saved');
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const autosaveTimer = useRef<NodeJS.Timeout | null>(null);
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch document
   useEffect(() => {
@@ -417,7 +418,7 @@ export default function DocumentStudio() {
             ))}
 
             <button
-              onClick={addBlock}
+              onClick={(e) => { e.preventDefault(); addBlock(); }}
               className="mt-4 w-full py-3 text-gray-500 hover:text-white border-2 border-dashed border-gray-700 hover:border-gray-500 rounded-lg transition-colors"
             >
               + Add Block

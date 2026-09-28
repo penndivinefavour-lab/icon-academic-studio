@@ -171,7 +171,7 @@ describe('API Response Types', () => {
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Invalid input',
-        details: [{ field: 'name', message: 'Required' }],
+        details: { name: 'Required' },
       },
     };
 

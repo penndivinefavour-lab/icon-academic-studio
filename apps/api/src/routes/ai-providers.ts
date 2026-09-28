@@ -9,7 +9,7 @@ aiProvidersRouter.get('/', async (_req: Request, res: Response) => {
     const providers = await prisma.aIProvider.findMany({
       orderBy: { name: 'asc' },
       include: {
-        models: true,
+        models_list: true,
       },
     });
 
@@ -49,7 +49,6 @@ aiProvidersRouter.post('/', async (req: Request, res: Response) => {
         name,
         type,
         endpoint,
-        models: models || [],
         capabilities: capabilities || {},
       },
     });

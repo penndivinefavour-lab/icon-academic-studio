@@ -1,0 +1,11 @@
+Subject,Grade,Score,Pass,Comments
+Mathematics,12,78,true,Good performance
+English,12,85,true,Excellent work
+Physics,12,65,true,Adequate understanding
+Chemistry,12,72,true,Needs improvement
+Biology,12,88,true,Outstanding
+Mathematics,11,90,true,Excellent
+English,11,75,true,Good effort
+Physics,11,68,true,Average
+Chemistry,11,,false,Missed exam
+Biology,11,82,true,Well done

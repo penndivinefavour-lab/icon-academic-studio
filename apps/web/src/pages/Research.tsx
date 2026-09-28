@@ -261,14 +261,14 @@ export default function Research() {
                   </div>
                 </div>
                 <div className="mt-3 flex gap-4 text-sm text-surface-500">
-                  {source._count?.chunks > 0 && (
-                    <span>📑 {source._count.chunks} chunks</span>
+                  {(source._count?.chunks ?? 0) > 0 && (
+                    <span>📑 {(source._count?.chunks ?? 0)} chunks</span>
                   )}
-                  {source._count?.citations > 0 && (
-                    <span>📎 {source._count.citations} citations</span>
+                  {(source._count?.citations ?? 0) > 0 && (
+                    <span>📎 {(source._count?.citations ?? 0)} citations</span>
                   )}
-                  {source._count?.evidenceItems > 0 && (
-                    <span>🔗 {source._count.evidenceItems} evidence items</span>
+                  {(source._count?.evidenceItems ?? 0) > 0 && (
+                    <span>🔗 {(source._count?.evidenceItems ?? 0)} evidence items</span>
                   )}
                 </div>
               </div>
@@ -306,9 +306,9 @@ export default function Research() {
                     {question.status}
                   </span>
                 </div>
-                {question._count?.evidenceItems > 0 && (
+                {(question._count?.evidenceItems ?? 0) > 0 && (
                   <p className="text-sm text-surface-500 mt-2">
-                    🔗 {question._count.evidenceItems} evidence item{question._count.evidenceItems > 1 ? 's' : ''}
+                    🔗 {(question._count?.evidenceItems ?? 0)} evidence item{(question._count?.evidenceItems ?? 0) > 1 ? 's' : ''}
                   </p>
                 )}
               </div>

@@ -175,6 +175,7 @@ function renderList(docx: any, items: string[], type: 'bullet' | 'number', profi
 function renderTable(docx: any, rows: any[][], profile: any) {
   if (!rows || rows.length === 0) return;
   
+  const rowCount = rows.length;
   const tableRows = rows.map((row, rowIndex) => 
     new TableRow({
       children: row.map((cell: any) => 
@@ -470,9 +471,9 @@ export async function generatePdf(documentId: string): Promise<Buffer> {
       });
 
       const chunks: Buffer[] = [];
-      doc.on('data', chunk => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', reject);
+      (doc as any).on('data', (chunk: Buffer) => chunks.push(chunk));
+      (doc as any).on('end', () => resolve(Buffer.concat(chunks)));
+      (doc as any).on('error', reject);
 
       // Title
       doc.fontSize(24).text(docData.title, { align: 'center' });
@@ -480,7 +481,7 @@ export async function generatePdf(documentId: string): Promise<Buffer> {
 
       // Subtitle
       if (docData.subtitle) {
-        doc.fontSize(16).text(docData.subtitle, { align: 'center', italics: true });
+        doc.fontSize(16).text(docData.subtitle, { align: 'center', italics: true } as any);
         doc.moveDown(1);
       }
 
@@ -523,7 +524,7 @@ function getPageMarginsPdf(profile: any) {
   return { top: 72, bottom: 72, left: 72, right: 72 };
 }
 
-function renderPdfBlock(doc: PDFDocument, block: Block, profile: any) {
+function renderPdfBlock(doc: any, block: any, profile: any) {
   const fontSize = (profile?.custom?.fontSize || 12) * 0.75; // Convert to points
   
   switch (block.type) {
@@ -551,7 +552,7 @@ function renderPdfBlock(doc: PDFDocument, block: Block, profile: any) {
     
     case 'NUMBERED_LIST': {
       const items = (block.content || '').split('\n').filter(Boolean);
-      items.forEach((item, i) => {
+      items.forEach((item: string, i: number) => {
         doc.fontSize(fontSize).text(`${i + 1}. ${item}`, { lineGap: 2 });
       });
       doc.moveDown(0.2);

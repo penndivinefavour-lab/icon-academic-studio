@@ -47,6 +47,8 @@ dev.db
 
 # Uploads
 storage/uploads/
+storage/datasets/
+*.db
 
 # Prisma migrations (keep schema, not generated)
 packages/db/prisma/migrations/

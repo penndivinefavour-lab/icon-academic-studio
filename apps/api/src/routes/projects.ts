@@ -122,7 +122,7 @@ projectsRouter.post('/', async (req: Request, res: Response) => {
     const project = await prisma.project.create({
       data: {
         ...validatedData,
-        settings: validatedData.settings || {},
+        settings: validatedData.settings ? JSON.stringify(validatedData.settings) : '{}',
       },
     });
 

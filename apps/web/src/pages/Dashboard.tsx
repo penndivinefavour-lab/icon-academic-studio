@@ -8,7 +8,7 @@ export default function Dashboard() {
     { label: 'Datasets', value: '0', change: 'Ready for analysis', color: 'orange' },
   ];
 
-  const recentProjects = [];
+  const recentProjects: Array<{ id: string; name: string; type: string; status: string }> = [];
   const quickActions = [
     { label: 'Create New Project', path: '/projects/new', icon: '➕' },
     { label: 'Upload Source', path: '/research/upload', icon: '📤' },

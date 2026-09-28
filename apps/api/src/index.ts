@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 
 import { apiRoutes } from './routes/index.js';
+import dataLabRoutes from './routes/dataLab.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 
@@ -40,6 +41,7 @@ app.get('/api/health', (_req, res) => {
 
 // API routes
 app.use('/api/v1', apiRoutes);
+app.use('/api/v1/data-lab', dataLabRoutes);
 
 // 404 handler
 app.use((_req, res) => {

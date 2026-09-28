@@ -788,4 +788,6 @@ export type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
-export type StrictUnion<T> = T extends object ? { [K in keyof T]: T[K] } & Partial<Record<Exclude<keyof T, K>, never>> : T;
+// Strict union: accepts only the intended members of the union, rejecting extra keys.
+type StrictAny = Record<string, any>;
+export type StrictUnion<U extends object> = U | (U & Record<string, 0>) extends infer O ? ({ [K in keyof O]: O[K] } extends StrictAny ? U : never) : never;

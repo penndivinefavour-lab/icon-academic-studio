@@ -86,7 +86,9 @@ function formatCitation(citation: any, style: 'APA' | 'MLA' | 'CHICAGO'): string
 // GET /api/v1/citations/format - Format a citation
 citationsRouter.get('/format', async (req: Request, res: Response) => {
   try {
-    const { id, style } = req.query;
+    const { id } = req.query as { id?: string };
+    const styleRaw = req.query.style;
+    const style: string | undefined = Array.isArray(styleRaw) ? (styleRaw[0] as string) : ((styleRaw as string) || undefined);
 
     if (!id || !style) {
       return res.status(400).json({

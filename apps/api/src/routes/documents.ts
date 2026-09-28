@@ -34,7 +34,7 @@ documentsRouter.get('/', async (req: Request, res: Response) => {
 // POST /api/v1/documents - Create a new document
 documentsRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { projectId, title, type, templateId, formattingProfileId } = req.body;
+    const { projectId, title, type, templateId, formattingProfileId, subtitle, description } = req.body;
 
     if (!projectId || !title || !type) {
       return res.status(400).json({
@@ -43,22 +43,14 @@ documentsRouter.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    let structure = {};
-    
-    if (templateId) {
-      const template = await prisma.template.findUnique({ where: { id: templateId } });
-      if (template?.structure) {
-        structure = JSON.parse(template.structure);
-      }
-    }
-
     const document = await prisma.document.create({
       data: {
         projectId,
         title,
         type,
+        subtitle,
+        description,
         formattingProfileId,
-        structure: JSON.stringify(structure),
       },
     });
 
