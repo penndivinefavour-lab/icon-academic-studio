@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import prisma from '@icon-academic/db';
+import { prisma } from '@icon-academic/db';
 
 export const researchRouter = Router();
 

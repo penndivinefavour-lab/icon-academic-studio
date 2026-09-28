@@ -4,7 +4,7 @@
  * Provides Prisma client initialization and database utilities.
  */
 
-import { PrismaClient } from './generated/prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 

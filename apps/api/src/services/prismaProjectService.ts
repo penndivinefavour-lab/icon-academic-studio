@@ -1,4 +1,4 @@
-import prisma from '@icon-academic/db';
+import { prisma } from '@icon-academic/db';
 import { Project, CreateProjectInput, UpdateProjectInput } from './projectService.js';
 
 export class PrismaProjectService {
@@ -9,7 +9,7 @@ export class PrismaProjectService {
         description: input.description,
         type: input.type,
         workspaceId: input.workspaceId,
-        settings: input.settings || {},
+        settings: JSON.stringify(input.settings || {}),
       },
     });
 

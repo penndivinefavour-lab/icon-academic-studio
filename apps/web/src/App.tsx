@@ -8,6 +8,7 @@ import DataLab from './pages/DataLab';
 import Templates from './pages/Templates';
 import AIProviders from './pages/AIProviders';
 import Settings from './pages/Settings';
+import DocumentStudio from './pages/DocumentStudio';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -99,6 +100,8 @@ function App() {
               <Route path="/projects" element={<Projects />} />
               <Route path="/research" element={<Research />} />
               <Route path="/documents" element={<Documents />} />
+              <Route path="/projects/:projectId/documents" element={<Documents />} />
+              <Route path="/projects/:projectId/documents/:documentId" element={<DocumentStudio />} />
               <Route path="/data-lab" element={<DataLab />} />
               <Route path="/templates" element={<Templates />} />
               <Route path="/ai-providers" element={<AIProviders />} />

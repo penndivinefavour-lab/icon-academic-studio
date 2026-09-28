@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import prisma from '@icon-academic/db';
+import { prisma } from '@icon-academic/db';
 import { extractPdf, extractDocx, chunkContent } from './extractors.js';
 
 export const sourcesRouter = Router();
@@ -270,13 +270,16 @@ async function extractSource(sourceId: string, filePath: string, fileType: strin
     });
 
     let content = '';
-    
+    const metadataObj: any = {};
+    let status = 'PROCESSING';
+    let errorMsg = '';
+
     switch (fileType) {
       case 'TXT':
       case 'MARKDOWN':
         content = fs.readFileSync(filePath, 'utf-8');
         break;
-        
+
     case 'PDF': {
         try {
           const pdfBuffer = fs.readFileSync(filePath);
@@ -309,7 +312,7 @@ async function extractSource(sourceId: string, filePath: string, fileType: strin
         }
         break;
       }
-      
+
       default:
         content = `[Content extraction not implemented for ${fileType}]`;
     }
@@ -317,9 +320,10 @@ async function extractSource(sourceId: string, filePath: string, fileType: strin
     // Store extracted content
     await prisma.source.update({
       where: { id: sourceId },
-      data: { 
+      data: {
         contentPreview: content.substring(0, 10000),
-        status: 'PROCESSED'
+        status: status,
+        metadata: JSON.stringify({ ...JSON.parse((await prisma.source.findUnique({ where: { id: sourceId } })).metadata || '{}'), ...metadataObj, ...(status === 'ERROR' ? { error: errorMsg } : {}) }),
       },
     });
 

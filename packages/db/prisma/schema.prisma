@@ -133,9 +133,10 @@ model Document {
   id                    String   @id @default(cuid())
   projectId             String
   title                 String
-  type                  String   // CHAPTER, SECTION, etc.
-  structure             String   @default("{}") // JSON string
-  settings              String   @default("{}") // JSON string
+  type                  String   // GENERAL, CHAPTER, SECTION, RESEARCH_REPORT, THESIS, STUDY_GUIDE, etc.
+  subtitle              String?
+  description           String?
+  language              String   @default("en")
   status                String   @default("DRAFT") // DRAFT, REVIEW, EDITED, PROOF, TYPESET, FINAL
   version               Int      @default(1)
   wordCount             Int      @default(0)
@@ -145,12 +146,73 @@ model Document {
 
   project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   formattingProfile     FormattingProfile? @relation(fields: [formattingProfileId], references: [id])
+  sections              DocumentSection[]
+  blocks                DocumentBlock[]
+  versions              DocumentVersion[]
   reviewItems           ReviewItem[]
   exports               ExportJob[]
 
   @@index([projectId])
   @@index([status])
   @@map("documents")
+}
+
+model DocumentSection {
+  id          String   @id @default(cuid())
+  documentId  String
+  parentId    String?
+  title       String   @default("")
+  headingLevel Int     @default(1)
+  order       Int      @default(0)
+  content     String?
+  metadata    String   @default("{}") // JSON string for additional section settings
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  parent      DocumentSection? @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    DocumentSection[] @relation("SectionHierarchy")
+  blocks      DocumentBlock[]
+
+  @@index([documentId])
+  @@index([order])
+  @@map("document_sections")
+}
+
+model DocumentBlock {
+  id         String   @id @default(cuid())
+  documentId String
+  sectionId  String?
+  type       String   // PARAGRAPH, HEADING, BULLET_LIST, NUMBERED_LIST, QUOTE, TABLE, PAGE_BREAK, CITATION_BLOCK, CALLOUT, IMAGE
+  content    String
+  order      Int      @default(0)
+  metadata   String   @default("{}") // JSON string for block-specific data (e.g., table rows, list items)
+  provenance String?  // JSON string: { sourceId, evidenceId, chunkId } where applicable
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  section    DocumentSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([sectionId])
+  @@index([order])
+  @@map("document_blocks")
+}
+
+model DocumentVersion {
+  id          String   @id @default(cuid())
+  documentId  String
+  versionNumber Int
+  note        String?
+  structure   String   // JSON snapshot of the document at this version
+  createdAt   DateTime @default(now())
+
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([versionNumber])
+  @@map("document_versions")
 }
 
 // ============================================================================

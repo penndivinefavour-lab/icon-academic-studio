@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import prisma from '@icon-academic/db';
+import { prisma } from '@icon-academic/db';
 
 export const projectsRouter = Router();
 
