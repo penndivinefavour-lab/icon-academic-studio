@@ -358,7 +358,7 @@ documentsRouter.get('/:id/stats', async (req: Request, res: Response) => {
 documentsRouter.get('/:id/export/:format', async (req: Request, res: Response) => {
   try {
     const { id, format } = req.params;
-    
+
     let output: Buffer | string;
     let mimeType: string;
     let extension: string;
@@ -369,6 +369,13 @@ documentsRouter.get('/:id/export/:format', async (req: Request, res: Response) =
         output = await generateDocx(id);
         mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
         extension = '.docx';
+        break;
+      }
+      case 'pdf': {
+        const { generatePdf } = await import('../services/documentExport.js');
+        output = await generatePdf(id);
+        mimeType = 'application/pdf';
+        extension = '.pdf';
         break;
       }
       case 'markdown':
