@@ -1,5 +1,5 @@
 // This is your Prisma schema file for ICON Academic Studio
-// Uses SQLite for local development; PostgreSQL for production.
+// Uses PostgreSQL for both development and production.
 // Learn more: https://pris.ly/d/prisma-schema
 
 generator client {
@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

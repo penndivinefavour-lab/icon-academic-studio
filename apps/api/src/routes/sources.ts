@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import prisma from '@icon-academic/db';
+import { extractPdf, extractDocx, chunkContent } from './extractors.js';
 
 export const sourcesRouter = Router();
 
@@ -276,25 +277,35 @@ async function extractSource(sourceId: string, filePath: string, fileType: strin
         content = fs.readFileSync(filePath, 'utf-8');
         break;
         
-      case 'PDF': {
+    case 'PDF': {
         try {
-          const pdfParse = require('pdf-parse');
-          const dataBuffer = fs.readFileSync(filePath);
-          const data = await pdfParse(dataBuffer);
-          content = data.text || '';
+          const pdfBuffer = fs.readFileSync(filePath);
+          const result = await extractPdf(pdfBuffer);
+          content = result.text || '';
+          if (result.pages) {
+            metadataObj.pageCount = result.pages;
+          }
+          if (result.headings?.length) {
+            metadataObj.headings = result.headings;
+          }
         } catch (parseError) {
-          content = '[PDF extraction pending - pdf-parse not available]';
+          status = 'ERROR';
+          errorMsg = `PDF extraction failed: ${(parseError as Error).message}`;
         }
         break;
       }
-      
+
       case 'DOCX': {
         try {
-          const mammoth = require('mammoth');
-          const result = await mammoth.extractRawText({ path: filePath });
-          content = result.value || '[DOCX extraction pending]';
+          const docxBuffer = fs.readFileSync(filePath);
+          const result = await extractDocx(docxBuffer);
+          content = result.text || '';
+          if (result.headings?.length) {
+            metadataObj.headings = result.headings;
+          }
         } catch (extractError) {
-          content = '[DOCX extraction pending - mammoth not available]';
+          status = 'ERROR';
+          errorMsg = `DOCX extraction failed: ${(extractError as Error).message}`;
         }
         break;
       }
