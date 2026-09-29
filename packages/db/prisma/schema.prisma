@@ -72,11 +72,15 @@ model Project {
   documents     Document[]
   datasets      Dataset[]
   researchNotes ResearchNote[]
-  questions     Question[]
   researchQuestions ResearchQuestion[]
   templates     Template[]
   formattingProfiles FormattingProfile[]
   generationJobs GenerationJob[]
+  // GCE domain
+  pastPapers    PastPaper[]
+  syllabi       Syllabus[]
+  questionBankItems QuestionBankItem[]
+  mockExams     MockExam[]
 
   @@index([workspaceId])
   @@index([type])
@@ -106,6 +110,10 @@ model Source {
   chunks           SourceChunk[]
   citations        Citation[]
   evidenceItems    EvidenceItem[]
+  // GCE domain
+  syllabi          Syllabus[]
+  markingSchemes   MarkingScheme[]
+  pastPapers       PastPaper[]
 
   @@index([projectId])
   @@index([status])
@@ -500,47 +508,315 @@ model FormattingProfile {
 }
 
 // ============================================================================
-// QUESTIONS & EXAMINATIONS
+// GCE / EXAMINATION INTELLIGENCE
 // ============================================================================
 
-model Question {
-  id            String   @id @default(cuid())
-  projectId     String
-  type          String   // MULTIPLE_CHOICE, SHORT_ANSWER, ESSAY, etc.
-  subject       String
-  topic         String
-  subtopic      String?
-  year          Int?
-  paper         String?
-  marks         Int
-  difficulty    String   // EASY, MEDIUM, HARD, EXPERT
-  stem          String
-  options       String?  // JSON string
-  answer        String?
-  markingScheme String?  // JSON string
-  sources       String   @default("[]") // JSON array string
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model ExamBoard {
+  id          String   @id @default(cuid())
+  name        String
+  code        String?  // e.g. "CAMEROON_GCE", "CIE", "EDEXCEL"
+  description String?
+  metadata    String   @default("{}") // JSON: country, levels, website, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subjects    Subject[]
+  syllabi     Syllabus[]
+  pastPapers  PastPaper[]
 
-  @@index([projectId])
-  @@index([subject])
-  @@index([topic])
-  @@index([difficulty])
-  @@map("questions")
+  @@unique([name])
+  @@map("exam_boards")
+}
+
+model Subject {
+  id          String   @id @default(cuid())
+  examBoardId String
+  name        String
+  code        String?  // e.g. "1123", "9709"
+  level       String   @default("O_LEVEL") // O_LEVEL, A_LEVEL, etc.
+  description String?
+  metadata    String   @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  examBoard   ExamBoard  @relation(fields: [examBoardId], references: [id], onDelete: Cascade)
+  syllabi     Syllabus[]
+  pastPapers  PastPaper[]
+  mockExams   MockExam[]
+
+  @@unique([examBoardId, code])
+  @@index([examBoardId])
+  @@map("subjects")
 }
 
 model Syllabus {
-  id       String   @id @default(cuid())
-  subject  String
-  examBoard String
-  year     Int
-  topics   String   @default("[]") // JSON array string
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  projectId   String?
+  examBoardId String
+  subjectId   String
+  title       String
+  session     String?  // e.g. "2024", "2024-2026"
+  version     String?
+  sourceId    String?
+  status      String   @default("DRAFT") // DRAFT, IMPORTED, REVIEWED, FINAL
+  metadata    String   @default("{}") // JSON: extraction info, notes, page refs
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
+  project     Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  examBoard   ExamBoard         @relation(fields: [examBoardId], references: [id], onDelete: Cascade)
+  subject     Subject           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  source      Source?           @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  sections    SyllabusSection[]
+  topics      SyllabusTopic[]
+
+  @@index([examBoardId])
+  @@index([projectId])
   @@map("syllabi")
+}
+
+model SyllabusSection {
+  id          String   @id @default(cuid())
+  syllabusId  String
+  parentId    String?
+  order       Int      @default(0)
+  code        String?  // e.g. "1.1", "Unit 1"
+  title       String
+  description String?
+  level       Int      @default(1) // hierarchy depth
+  metadata    String   @default("{}") // source page ref, extraction info
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  syllabus    Syllabus          @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+  parent      SyllabusSection?  @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    SyllabusSection[] @relation("SectionHierarchy")
+  topics      SyllabusTopic[]
+
+  @@map("syllabus_sections")
+}
+
+model SyllabusTopic {
+  id          String   @id @default(cuid())
+  syllabusId  String
+  sectionId   String?
+  parentId    String?
+  order       Int      @default(0)
+  code        String?  // e.g. "1.1.2"
+  title       String
+  description String?
+  level       Int      @default(1)
+  metadata    String   @default("{}") // source page ref, source line ref, extraction info
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  syllabus    Syllabus          @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+  section     SyllabusSection?  @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  parent      SyllabusTopic?    @relation("TopicHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    SyllabusTopic[]   @relation("TopicHierarchy")
+  mappings    QuestionTopicMapping[]
+
+  @@index([syllabusId])
+  @@index([sectionId])
+  @@index([parentId])
+  @@map("syllabus_topics")
+}
+
+model PastPaper {
+  id          String   @id @default(cuid())
+  projectId   String
+  examBoardId String
+  subjectId   String
+  year        Int
+  session     String?  // e.g. "June", "November", "Annual"
+  paperNumber String?  // e.g. "Paper 1", "11"
+  title       String
+  sourceId    String?
+  status      String   @default("IMPORTED") // IMPORTED, PARSED, REVIEWED, ERROR
+  metadata    String   @default("{}") // JSON: extraction info, page count, parsing status
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  examBoard   ExamBoard          @relation(fields: [examBoardId], references: [id], onDelete: Cascade)
+  subject     Subject            @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  source      Source?            @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  questions   PastPaperQuestion[]
+  markingSchemes MarkingScheme[]
+
+  @@unique([examBoardId, subjectId, year, paperNumber])
+  @@index([projectId])
+  @@index([examBoardId])
+  @@index([subjectId])
+  @@index([year])
+  @@map("past_papers")
+}
+
+model PastPaperQuestion {
+  id               String   @id @default(cuid())
+  pastPaperId      String
+  questionNumber   String   @default("") // e.g. "1", "2(a)"
+  subQuestionNumber String? // e.g. "(a)", "(i)"
+  text             String   // full question text
+  marks            Int      @default(0)
+  questionType     String   @default("UNKNOWN") // MULTIPLE_CHOICE, SHORT_ANSWER, STRUCTURED, CALCULATION, ESSAY, DEFINITION, EXPLANATION, COMPARISON, DIAGRAM, DATA_INTERPRETATION
+  commandVerb      String   @default("UNKNOWN") // DEFINE, EXPLAIN, CALCULATE, STATE, LIST, DESCRIBE, COMPARE, DISTINGUISH, DISCUSS, EVALUATE, ANALYZE, DRAW, IDENTIFY
+  section          String?  // paper section name/number
+  metadata         String   @default("{}") // JSON: position, source page, parsing confidence, review flags
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  pastPaper        PastPaper            @relation(fields: [pastPaperId], references: [id], onDelete: Cascade)
+  parts            QuestionPart[]
+  markingPoints    MarkingPoint[]
+  mappings         QuestionTopicMapping[]
+  bankItems        QuestionBankItem[]
+  mockQuestions    MockExamQuestion[]
+
+  @@index([pastPaperId])
+  @@index([questionNumber])
+  @@map("past_paper_questions")
+}
+
+model QuestionPart {
+  id        String   @id @default(cuid())
+  questionId String
+  label     String   @default("") // e.g. "(a)", "(i)", "A"
+  text      String
+  marks     Int      @default(0)
+  order     Int      @default(0)
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+
+  question  PastPaperQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@map("question_parts")
+}
+
+model MarkingScheme {
+  id          String   @id @default(cuid())
+  pastPaperId String
+  sourceId    String?
+  title       String
+  metadata    String   @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pastPaper   PastPaper      @relation(fields: [pastPaperId], references: [id], onDelete: Cascade)
+  source      Source?        @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  points      MarkingPoint[]
+
+  @@index([pastPaperId])
+  @@map("marking_schemes")
+}
+
+model MarkingPoint {
+  id               String   @id @default(cuid())
+  markingSchemeId  String
+  questionId       String?
+  partLabel        String?  // which part of the question this point applies to
+  pointText        String
+  marks            Int      @default(0)
+  order            Int      @default(0)
+  metadata         String   @default("{}") // matching confidence, source info
+  createdAt        DateTime @default(now())
+
+  markingScheme    MarkingScheme       @relation(fields: [markingSchemeId], references: [id], onDelete: Cascade)
+  question         PastPaperQuestion?  @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  @@index([markingSchemeId])
+  @@index([questionId])
+  @@map("marking_points")
+}
+
+model QuestionTopicMapping {
+  id         String   @id @default(cuid())
+  questionId String
+  topicId    String
+  method     String   @default("MANUAL") // KEYWORD, DETERMINISTIC, AI_SUGGESTED, MANUAL
+  status     String   @default("SUGGESTED") // SUGGESTED, REVIEWED, CONFIRMED, REJECTED
+  confidence Float?   // 0-1, when available
+  rationale  String?  // explanation of why this mapping
+  metadata   String   @default("{}")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  question   PastPaperQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  topic      SyllabusTopic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, topicId])
+  @@index([questionId])
+  @@index([topicId])
+  @@index([status])
+  @@map("question_topic_mappings")
+}
+
+model QuestionBankItem {
+  id               String   @id @default(cuid())
+  projectId        String
+  sourceQuestionId String?  // PastPaperQuestion id if from historical paper
+  questionText     String
+  marks            Int      @default(0)
+  topic            String?  // denormalized topic title for search/filter
+  topicId          String?  // SyllabusTopic id
+  questionType     String   @default("UNKNOWN")
+  commandVerb      String   @default("UNKNOWN")
+  difficulty       String   @default("UNKNOWN") // EASY, MEDIUM, HARD
+  year             Int?
+  paperTitle       String?
+  sourceId         String?  // source file reference
+  notes            String?
+  metadata         String   @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  project         Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceQuestion  PastPaperQuestion? @relation(fields: [sourceQuestionId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([topicId])
+  @@index([questionType])
+  @@index([commandVerb])
+  @@map("question_bank_items")
+}
+
+model MockExam {
+  id            String   @id @default(cuid())
+  projectId     String
+  subjectId     String
+  title         String
+  duration      Int?     // minutes
+  totalMarks    Int      @default(0)
+  configuration String   @default("{}") // JSON: instructions, sections, time allocation
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project       Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subject       Subject           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions     MockExamQuestion[]
+
+  @@index([projectId])
+  @@index([subjectId])
+  @@map("mock_exams")
+}
+
+model MockExamQuestion {
+  id               String   @id @default(cuid())
+  mockExamId       String
+  sourceQuestionId String?  // PastPaperQuestion id
+  questionBankItemId String? // QuestionBankItem id
+  questionText     String   // snapshot of question text
+  marks            Int      @default(0)
+  order            Int      @default(0)
+  metadata         String   @default("{}")
+  createdAt        DateTime @default(now())
+
+  mockExam         MockExam          @relation(fields: [mockExamId], references: [id], onDelete: Cascade)
+  sourceQuestion   PastPaperQuestion? @relation(fields: [sourceQuestionId], references: [id], onDelete: SetNull)
+
+  @@index([mockExamId])
+  @@map("mock_exam_questions")
 }
 
 // ============================================================================

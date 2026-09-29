@@ -8,6 +8,7 @@ import { templatesRouter } from './templates.js';
 import { healthRouter } from './health.js';
 import { researchRouter } from './research.js';
 import { citationsRouter } from './citations.js';
+import { gceRouter } from './gce.js';
 
 export const apiRoutes = Router();
 
@@ -20,3 +21,4 @@ apiRoutes.use('/ai/providers', aiProvidersRouter);
 apiRoutes.use('/templates', templatesRouter);
 apiRoutes.use('/research', researchRouter);
 apiRoutes.use('/citations', citationsRouter);
+apiRoutes.use('/gce', gceRouter);

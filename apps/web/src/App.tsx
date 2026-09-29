@@ -9,6 +9,7 @@ import Templates from './pages/Templates';
 import AIProviders from './pages/AIProviders';
 import Settings from './pages/Settings';
 import DocumentStudio from './pages/DocumentStudio';
+import GCEPastPapers from './pages/GCEPastPapers';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -19,6 +20,7 @@ function App() {
     { path: '/research', label: 'Research', icon: '🔍' },
     { path: '/documents', label: 'Documents', icon: '📄' },
     { path: '/data-lab', label: 'Data Lab', icon: '📈' },
+    { path: '/gce-past-papers', label: 'GCE Past Papers', icon: '🎓' },
     { path: '/templates', label: 'Templates', icon: '📋' },
     { path: '/ai-providers', label: 'AI Providers', icon: '🤖' },
     { path: '/settings', label: 'Settings', icon: '⚙️' },
@@ -103,6 +105,7 @@ function App() {
               <Route path="/projects/:projectId/documents" element={<Documents />} />
               <Route path="/projects/:projectId/documents/:documentId" element={<DocumentStudio />} />
               <Route path="/data-lab" element={<DataLab />} />
+              <Route path="/gce-past-papers" element={<GCEPastPapers />} />
               <Route path="/templates" element={<Templates />} />
               <Route path="/ai-providers" element={<AIProviders />} />
               <Route path="/settings" element={<Settings />} />

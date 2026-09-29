@@ -178,7 +178,6 @@ projectsRouter.get('/:id', async (req: Request, res: Response) => {
             documents: true,
             datasets: true,
             researchNotes: true,
-            questions: true,
           },
         },
       },
