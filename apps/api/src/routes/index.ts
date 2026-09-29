@@ -9,6 +9,7 @@ import { healthRouter } from './health.js';
 import { researchRouter } from './research.js';
 import { citationsRouter } from './citations.js';
 import { gceRouter } from './gce.js';
+import { academicProjectsRouter } from './academicProjects.js';
 
 export const apiRoutes = Router();
 
@@ -22,3 +23,4 @@ apiRoutes.use('/templates', templatesRouter);
 apiRoutes.use('/research', researchRouter);
 apiRoutes.use('/citations', citationsRouter);
 apiRoutes.use('/gce', gceRouter);
+apiRoutes.use('/academic-projects', academicProjectsRouter);

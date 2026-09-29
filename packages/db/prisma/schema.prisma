@@ -81,6 +81,8 @@ model Project {
   syllabi       Syllabus[]
   questionBankItems QuestionBankItem[]
   mockExams     MockExam[]
+  academicProjects AcademicProject[]
+  academicReferences AcademicReference[]
 
   @@index([workspaceId])
   @@index([type])
@@ -114,6 +116,9 @@ model Source {
   syllabi          Syllabus[]
   markingSchemes   MarkingScheme[]
   pastPapers       PastPaper[]
+
+  // Academic Project Studio domain
+  academicAppendices AcademicAppendix[] @relation("AppendixBoundSource")
 
   @@index([projectId])
   @@index([status])
@@ -160,6 +165,8 @@ model Document {
   versions              DocumentVersion[]
   reviewItems           ReviewItem[]
   exports               ExportJob[]
+  // Academic Project Studio domain
+  academicProjects      AcademicProject[]
 
   @@index([projectId])
   @@index([status])
@@ -182,6 +189,10 @@ model DocumentSection {
   parent      DocumentSection? @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children    DocumentSection[] @relation("SectionHierarchy")
   blocks      DocumentBlock[]
+  // Academic Project Studio domain
+  academicChapter  AcademicChapter?
+  academicTable   AcademicTableFigure?
+  evidenceLinks   EvidenceSectionLink[]
 
   @@index([documentId])
   @@index([order])
@@ -244,6 +255,7 @@ model Citation {
   createdAt   DateTime @default(now())
 
   source      Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  academicReferences AcademicReference[]
 
   @@index([sourceId])
   @@map("citations")
@@ -282,6 +294,8 @@ model ResearchQuestion {
 
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   evidenceItems EvidenceItem[]
+  objectiveLinks ObjectiveQuestion[]
+  findings        Finding[]
 
   @@index([projectId])
   @@index([status])
@@ -299,10 +313,26 @@ model EvidenceItem {
 
   researchQuestion   ResearchQuestion @relation(fields: [researchQuestionId], references: [id], onDelete: Cascade)
   source             Source           @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  sectionLinks       EvidenceSectionLink[]
 
   @@index([researchQuestionId])
   @@index([sourceId])
   @@map("evidence_items")
+}
+
+// Phase 6 back-relation: evidence linked to academic project sections
+model EvidenceSectionLink {
+  id          String   @id @default(cuid())
+  evidenceId  String
+  documentSectionId String
+  createdAt   DateTime @default(now())
+
+  evidence    EvidenceItem @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  documentSection DocumentSection @relation(fields: [documentSectionId], references: [id], onDelete: Cascade)
+
+  @@unique([evidenceId, documentSectionId])
+  @@index([documentSectionId])
+  @@map("evidence_section_links")
 }
 
 // ============================================================================
@@ -335,6 +365,9 @@ model Dataset {
   tables      Table_[]
   transformations Transformation[]
   resultTransformations Transformation[] @relation("TransformationResult")
+  // Phase 6: Data Lab → Academic findings linkage
+  findings    Finding[]
+  appendices  AcademicAppendix[]
 
   @@index([projectId])
   @@index([status])
@@ -356,6 +389,7 @@ model DatasetColumn {
   createdAt     DateTime @default(now())
 
   dataset       Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  variables     ResearchVariable[]
 
   @@index([datasetId])
   @@index([index])
@@ -372,6 +406,7 @@ model Analysis {
   createdAt   DateTime @default(now())
 
   dataset     Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  findings    Finding[]
 
   @@index([datasetId])
   @@map("analyses")
@@ -388,9 +423,639 @@ model Chart {
   createdAt   DateTime @default(now())
 
   dataset     Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  academicTables AcademicTableFigure[]
+  appendices   AcademicAppendix[]
+  findings    Finding[]
 
   @@index([datasetId])
   @@map("charts")
+}
+
+// ============================================================================
+// ACADEMIC PROJECT STUDIO (Phase 6)
+// ============================================================================
+//
+// Reuse-first: chapters are typed views over DocumentSection; instruments,
+// findings, conclusions and appendices reference existing Source / Dataset /
+// Analysis / Table_ / Chart entities instead of duplicating them.
+
+model AcademicProject {
+  id                  String   @id @default(cuid())
+  projectId           String
+  documentId          String?  // Document Studio document for this project
+  title               String
+  projectType         String   // HND_PROJECT | THESIS | DISSERTATION | ... | CUSTOM
+  institution         String?
+  department          String?
+  program             String?
+  academicLevel       String?  // HND | BACHELOR | MASTER | DOCTORATE | OTHER
+  studentName         String?
+  registrationNumber  String?
+  supervisorName      String?
+  academicYear        String?
+  status              String   @default("DRAFT") // DRAFT, IN_PROGRESS, REVIEW, SUBMITTED, COMPLETED
+  formattingProfileId String?
+  citationStyle       String   @default("APA") // APA, MLA, CHICAGO, HARVARD
+  metadata            String   @default("{}") // JSON: custom requirements
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document            Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  formattingProfile   FormattingProfile? @relation(fields: [formattingProfileId], references: [id])
+
+  chapters            AcademicChapter[]
+  requirements        AcademicRequirement[]
+  objectives          AcademicObjective[]
+  hypotheses          ResearchHypothesis[]
+  variables           ResearchVariable[]
+  frameworks          ConceptualFramework[]
+  methodologies       Methodology[]
+  questionnaires      Questionnaire[]
+  interviewGuides     InterviewGuide[]
+  findings            Finding[]
+  conclusions         Conclusion[]
+  recommendations     Recommendation[]
+  appendices          AcademicAppendix[]
+  frontMatter         FrontMatter[]
+  abstracts           AcademicAbstract[]
+  tables              AcademicTableFigure[]
+  references          AcademicReference[]
+  validationRuns      ValidationRun[]
+  objectiveQuestions  ObjectiveQuestion[]
+
+  @@index([projectId])
+  @@index([documentId])
+  @@index([projectType])
+  @@map("academic_projects")
+}
+
+model AcademicChapter {
+  id              String   @id @default(cuid())
+  academicProjectId String
+  documentSectionId String? @unique // corresponding Document Studio section
+  chapterNumber   Int
+  title           String
+  description     String?
+  wordTarget      Int?
+  order           Int      @default(0)
+  isFrontMatter   Boolean  @default(false)
+  isAppendix      Boolean  @default(false)
+  required        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  academicProject AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  documentSection DocumentSection? @relation(fields: [documentSectionId], references: [id], onDelete: SetNull)
+  requirements    AcademicRequirement[]
+  methodology     Methodology?
+  appendices      AcademicAppendix[]
+
+  @@unique([academicProjectId, chapterNumber])
+  @@index([academicProjectId])
+  @@index([documentSectionId])
+  @@map("academic_chapters")
+}
+
+model AcademicRequirement {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  chapterId        String?
+  category         String   // STRUCTURE | CONTENT | REFERENCE | DATA | FORMATTING
+  rule             String   // machine-readable rule key
+  parameters       String   @default("{}") // JSON: thresholds, targets, styles
+  severity         String   @default("ERROR") // ERROR, WARNING, INFO
+  description      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  chapter          AcademicChapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+
+  @@index([academicProjectId])
+  @@index([category])
+  @@map("academic_requirements")
+}
+
+model AcademicObjective {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  objectiveType    String   // GENERAL, SPECIFIC
+  statement        String
+  order            Int      @default(0)
+  status           String   @default("DRAFT") // DRAFT, AI_GENERATED, USER_EDITED, NEEDS_REVIEW, VERIFIED, APPROVED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  questionLinks    ObjectiveQuestion[]
+  findings         Finding[]
+  conclusions      Conclusion[]
+
+  @@index([academicProjectId])
+  @@map("academic_objectives")
+}
+
+model ObjectiveQuestion {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  objectiveId      String
+  researchQuestionId String?
+  questionnaireItemId String?
+  customQuestion   String?  // instrument-specific question text when not an RQ
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  objective        AcademicObjective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  researchQuestion ResearchQuestion? @relation(fields: [researchQuestionId], references: [id], onDelete: SetNull)
+  questionnaireItem QuestionnaireItem? @relation("QuestionItemObjectives", fields: [questionnaireItemId], references: [id], onDelete: SetNull)
+
+  @@index([objectiveId])
+  @@map("objective_questions")
+}
+
+model ResearchHypothesis {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  hypothesisType   String   // NULL, ALTERNATIVE
+  statement        String
+  variableIds      String   @default("[]") // JSON array of ResearchVariable ids
+  status           String   @default("UNTESTED") // UNTESTED, SUPPORTED, REJECTED, PARTIALLY_SUPPORTED
+  testedByAnalysisId String? // set only when a valid analysis exists
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  findings         Finding[]
+
+  @@index([academicProjectId])
+  @@map("research_hypotheses")
+}
+
+model ResearchVariable {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  name             String
+  label            String?
+  description      String?
+  variableType     String?  // e.g. DEMOGRAPHIC_AGE, LIKERT_5, CONTINUOUS
+  role             String   // INDEPENDENT, DEPENDENT, MODERATOR, MEDIATOR, CONTROL, DEMOGRAPHIC, OTHER
+  measurementScale String?  // NOMINAL, ORDINAL, INTERVAL, RATIO
+  operationalDefinition String?
+  datasetColumnId  String?  // Data Lab linkage
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  datasetColumn    DatasetColumn? @relation(fields: [datasetColumnId], references: [id], onDelete: SetNull)
+  questionnaireItems QuestionnaireItem[]
+  frameworkNodes   ConceptualFrameworkNode[]
+
+  @@unique([academicProjectId, name])
+  @@index([academicProjectId])
+  @@map("research_variables")
+}
+
+model ConceptualFramework {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  title            String
+  description      String?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  nodes            ConceptualFrameworkNode[]
+  edges            ConceptualFrameworkEdge[]
+
+  @@index([academicProjectId])
+  @@map("conceptual_frameworks")
+}
+
+model ConceptualFrameworkNode {
+  id               String   @id @default(cuid())
+  frameworkId      String
+  variableId       String?
+  concept          String
+  description      String?
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  framework        ConceptualFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  variable         ResearchVariable? @relation(fields: [variableId], references: [id], onDelete: SetNull)
+  sourceEdges      ConceptualFrameworkEdge[] @relation("EdgeSource")
+  targetEdges      ConceptualFrameworkEdge[] @relation("EdgeTarget")
+
+  @@index([frameworkId])
+  @@map("conceptual_framework_nodes")
+}
+
+model ConceptualFrameworkEdge {
+  id               String   @id @default(cuid())
+  frameworkId      String
+  sourceNodeId     String
+  targetNodeId     String
+  relationship     String   // CAUSES, INFLUENCES, CORRELATES_WITH, MEDIATES, MODERATES, ASSOCIATED_WITH
+  description      String?
+  createdAt        DateTime @default(now())
+
+  framework        ConceptualFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  sourceNode       ConceptualFrameworkNode @relation("EdgeSource", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode       ConceptualFrameworkNode @relation("EdgeTarget", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([frameworkId, sourceNodeId, targetNodeId, relationship])
+  @@index([frameworkId])
+  @@map("conceptual_framework_edges")
+}
+
+model Methodology {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  chapterId        String? @unique
+  design           String?  // e.g. DESCRIPTIVE_SURVEY, EXPERIMENTAL, QUALITATIVE
+  population       String?
+  sampleSize       Int?
+  samplingTechnique String?
+  dataCollectionMethod String?
+  analysisPlan     String?
+  ethicalConsiderations String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  chapter          AcademicChapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  sections         MethodologySection[]
+
+  @@index([academicProjectId])
+  @@map("methodologies")
+}
+
+model MethodologySection {
+  id               String   @id @default(cuid())
+  methodologyId    String
+  sectionKey       String   // RESEARCH_DESIGN, STUDY_AREA, POPULATION, SAMPLE, ...
+  title            String
+  content          String   @default("")
+  order            Int      @default(0)
+  status           String   @default("DRAFT") // DRAFT, AI_GENERATED, USER_EDITED, NEEDS_REVIEW, VERIFIED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  methodology      Methodology @relation(fields: [methodologyId], references: [id], onDelete: Cascade)
+
+  @@unique([methodologyId, sectionKey])
+  @@index([methodologyId])
+  @@map("methodology_sections")
+}
+
+model InterviewGuide {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  title            String
+  description      String?
+  participantInfo  String?  // JSON: target participants, sampling notes
+  consentNote      String?  // consent-related placeholder text
+  status           String   @default("DRAFT") // DRAFT, AI_GENERATED, USER_EDITED, NEEDS_REVIEW, APPROVED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  questions        InterviewQuestion[]
+  appendices       AcademicAppendix[]
+
+  @@index([academicProjectId])
+  @@map("interview_guides")
+}
+
+model InterviewQuestion {
+  id               String   @id @default(cuid())
+  interviewGuideId String
+  section          String?
+  questionText     String
+  probe            String?  // follow-up probe
+  objectiveId      String?
+  researchQuestionId String?
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  interviewGuide   InterviewGuide @relation(fields: [interviewGuideId], references: [id], onDelete: Cascade)
+
+  @@index([interviewGuideId])
+  @@map("interview_questions")
+}
+
+model Finding {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  number           Int      // finding number, e.g. 1
+  statement        String
+  interpretation   String?
+  analysisId       String?  // provenance: analysis that produced this finding
+  datasetId        String?  // provenance: dataset analysed
+  tableId          String?  // provenance: Data Lab table
+  chartId          String?  // provenance: Data Lab chart
+  researchQuestionId String?
+  objectiveId      String?
+  hypothesisId     String?
+  numericValue     Float?
+  numericLabel     String?
+  status           String   @default("DRAFT") // DRAFT, AI_GENERATED, USER_EDITED, NEEDS_REVIEW, VERIFIED
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  analysis         Analysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+  dataset          Dataset? @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+  table            Table_? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  chart            Chart? @relation(fields: [chartId], references: [id], onDelete: SetNull)
+  researchQuestion ResearchQuestion? @relation(fields: [researchQuestionId], references: [id], onDelete: SetNull)
+  objective        AcademicObjective? @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
+  hypothesis       ResearchHypothesis? @relation(fields: [hypothesisId], references: [id], onDelete: SetNull)
+  conclusionLinks  ConclusionFinding[]
+  recommendationLinks RecommendationFinding[]
+
+  @@unique([academicProjectId, number])
+  @@index([academicProjectId])
+  @@map("findings")
+}
+
+model Conclusion {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  statement        String
+  objectiveId      String?
+  order            Int      @default(0)
+  status           String   @default("DRAFT") // DRAFT, AI_GENERATED, USER_EDITED, NEEDS_REVIEW, VERIFIED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  objective        AcademicObjective? @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
+  findingLinks     ConclusionFinding[]
+
+  @@index([academicProjectId])
+  @@map("conclusions")
+}
+
+model ConclusionFinding {
+  id               String   @id @default(cuid())
+  conclusionId     String
+  findingId        String
+  createdAt        DateTime @default(now())
+
+  conclusion       Conclusion @relation(fields: [conclusionId], references: [id], onDelete: Cascade)
+  finding          Finding  @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@unique([conclusionId, findingId])
+  @@map("conclusion_findings")
+}
+
+model Recommendation {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  statement        String
+  audience         String?
+  order            Int      @default(0)
+  status           String   @default("DRAFT")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  findingLinks     RecommendationFinding[]
+
+  @@index([academicProjectId])
+  @@map("recommendations")
+}
+
+model RecommendationFinding {
+  id               String   @id @default(cuid())
+  recommendationId String
+  findingId        String
+  createdAt        DateTime @default(now())
+
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  finding          Finding  @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@unique([recommendationId, findingId])
+  @@map("recommendation_findings")
+}
+
+model AcademicAppendix {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  label            String   // e.g. "Appendix A"
+  title            String
+  appendixType     String   // QUESTIONNAIRE, INTERVIEW_GUIDE, CONSENT_FORM, RAW_DATA,
+                             // ADDITIONAL_TABLE, ADDITIONAL_FIGURE, APPROVAL_LETTER,
+                             // SUPPORTING_DOCUMENT
+  chapterId        String?
+  questionnaireId  String?
+  interviewGuideId String?
+  sourceId         String?  // bound to a real uploaded source
+  datasetId        String?  // bound to a real Data Lab dataset
+  tableId          String?  // bound to a real Data Lab table
+  chartId          String?  // bound to a real Data Lab chart
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  chapter          AcademicChapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+
+  questionnaire    Questionnaire? @relation(fields: [questionnaireId], references: [id], onDelete: SetNull)
+  interviewGuide   InterviewGuide? @relation(fields: [interviewGuideId], references: [id], onDelete: SetNull)
+  source           Source?  @relation("AppendixBoundSource", fields: [sourceId], references: [id], onDelete: SetNull)
+  dataset          Dataset? @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+  table            Table_? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  chart            Chart? @relation(fields: [chartId], references: [id], onDelete: SetNull)
+
+  @@index([academicProjectId])
+  @@map("academic_appendices")
+}
+
+model FrontMatter {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  kind             String   // COVER_PAGE, TITLE_PAGE, DECLARATION, CERTIFICATION, APPROVAL_PAGE,
+                             // DEDICATION, ACKNOWLEDGEMENTS, ABSTRACT, TABLE_OF_CONTENTS,
+                             // LIST_OF_TABLES, LIST_OF_FIGURES, LIST_OF_ABBREVIATIONS, LIST_OF_APPENDICES
+  title            String
+  content          String   @default("")
+  required         Boolean  @default(true)
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+
+  @@unique([academicProjectId, kind])
+  @@index([academicProjectId])
+  @@map("front_matter")
+}
+
+model AcademicAbstract {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  content          String   @default("")
+  wordLimit        Int      @default(300)
+  generationStatus String   @default("NONE") // NONE, AI_GENERATED, USER_EDITED
+  reviewStatus     String   @default("DRAFT") // DRAFT, NEEDS_REVIEW, VERIFIED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+
+  @@index([academicProjectId])
+  @@map("academic_abstracts")
+}
+
+model AcademicTableFigure {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  kind             String   // TABLE, FIGURE
+  number           Int      // e.g. 4.1 -> stored as sequence per kind
+  label            String   // e.g. "Table 4.1"
+  caption          String
+  tableId          String?  // Data Lab table
+  chartId          String?  // Data Lab chart
+  documentSectionId String? @unique // where it appears
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  table            Table_? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  chart            Chart? @relation(fields: [chartId], references: [id], onDelete: SetNull)
+  documentSection  DocumentSection? @relation(fields: [documentSectionId], references: [id], onDelete: SetNull)
+
+  @@unique([academicProjectId, kind, number])
+  @@index([academicProjectId])
+  @@map("academic_tables_figures")
+}
+
+model AcademicReference {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  projectId        String
+  citationId       String?  // bound to an existing Citation (source)
+  style            String   @default("APA") // APA, MLA, CHICAGO, HARVARD
+  authors          String   @default("[]") // JSON array
+  year             String?
+  title            String?
+  source           String?  // journal / publisher / container
+  volume           String?
+  issue            String?
+  pages            String?
+  url              String?
+  doi              String?
+  raw              String
+  isComplete       Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  citation         Citation? @relation(fields: [citationId], references: [id], onDelete: SetNull)
+
+  @@index([academicProjectId])
+  @@index([projectId])
+  @@map("academic_references")
+}
+
+model ValidationRun {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  status           String   @default("COMPLETED") // COMPLETED, FAILED
+  passedCount      Int      @default(0)
+  warningCount     Int      @default(0)
+  errorCount       Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  issues           ValidationIssue[]
+
+  @@index([academicProjectId])
+  @@map("validation_runs")
+}
+
+model ValidationIssue {
+  id               String   @id @default(cuid())
+  validationRunId  String
+  category         String   // STRUCTURE, CONTENT, REFERENCE, DATA, FORMATTING
+  severity         String   // PASS, WARNING, ERROR, NEEDS_REVIEW
+  rule             String
+  message          String
+  entityId         String?  // chapter / section / block / reference / finding id
+  entityType       String?
+  resolved         Boolean  @default(false)
+  resolutionNote   String?
+  createdAt        DateTime @default(now())
+  resolvedAt       DateTime?
+
+  validationRun    ValidationRun @relation(fields: [validationRunId], references: [id], onDelete: Cascade)
+
+  @@index([validationRunId])
+  @@index([resolved])
+  @@map("validation_issues")
+}
+
+model Questionnaire {
+  id               String   @id @default(cuid())
+  academicProjectId String
+  title            String
+  description      String?
+  status           String   @default("DRAFT") // DRAFT, AI_GENERATED, USER_EDITED, NEEDS_REVIEW, APPROVED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  academicProject  AcademicProject @relation(fields: [academicProjectId], references: [id], onDelete: Cascade)
+  sections         QuestionnaireSection[]
+  appendices       AcademicAppendix[]
+
+  @@index([academicProjectId])
+  @@map("questionnaires")
+}
+
+model QuestionnaireSection {
+  id               String   @id @default(cuid())
+  questionnaireId  String
+  title            String
+  description      String?
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  questionnaire    Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+
+  items            QuestionnaireItem[]
+
+  @@index([questionnaireId])
+  @@map("questionnaire_sections")
+}
+
+model QuestionnaireItem {
+  id               String   @id @default(cuid())
+  questionnaireSectionId String
+  variableId       String?
+  questionNumber   String
+  questionText     String
+  questionType     String   // SHORT_TEXT, LONG_TEXT, SINGLE_CHOICE, MULTIPLE_CHOICE, YES_NO, LIKERT, NUMERIC, DATE, MATRIX
+  responseOptions  String   @default("[]") // JSON array
+  likertScale      String   @default("[]") // JSON array of scale points
+  isRequired       Boolean  @default(true)
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  questionnaireSection QuestionnaireSection @relation(fields: [questionnaireSectionId], references: [id], onDelete: Cascade)
+  variable         ResearchVariable? @relation(fields: [variableId], references: [id], onDelete: SetNull)
+  objectiveLinks   ObjectiveQuestion[] @relation("QuestionItemObjectives")
+
+  @@unique([questionnaireSectionId, questionNumber])
+  @@index([variableId])
+  @@map("questionnaire_items")
 }
 
 model Table_ {
@@ -404,6 +1069,9 @@ model Table_ {
   createdAt DateTime @default(now())
 
   dataset   Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  academicTables AcademicTableFigure[]
+  appendices AcademicAppendix[]
+  findings  Finding[]
 
   @@index([datasetId])
   @@map("tables")
@@ -502,6 +1170,7 @@ model FormattingProfile {
 
   project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   documents   Document[]
+  academicProjects AcademicProject[]
 
   @@index([projectId])
   @@map("formatting_profiles")
