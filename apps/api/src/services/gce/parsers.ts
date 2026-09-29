@@ -321,6 +321,10 @@ export function parsePastPaper(rawText: string): ParsedPaper {
   const Q_START = /^(\s{0,3})(\d{1,3})\s*[.):]?\s+(\S.*)$/;
   const PART_LINE =
     /^\s*\((?:[a-d]|[ivx]{1,4}|\d{1,2})\)\s*(\S.*)$/;
+  // A question line may itself start with a part label, e.g.
+  //   "3. (a) Describe the structure..."   → number "3", part "(a)", body
+  const Q_START_WITH_PART =
+    /^(\s{0,3})(\d{1,3})\s*[.):]?\s+(\([a-d]\)|\([ivx]{1,4}\)|\(\d{1,2}\))\s*(\S.*)$/;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -370,7 +374,51 @@ export function parsePastPaper(rawText: string): ParsedPaper {
       }
     }
 
-    const qStart = line.match(Q_START);
+    const qStartWithPart = line.match(Q_START_WITH_PART);
+    const qStart = qStartWithPart ? null : line.match(Q_START);
+    if (qStartWithPart) {
+      // "3. (a) Describe..." — open the question and immediately emit part (a)
+      const number = qStartWithPart[2];
+      const partLabel = qStartWithPart[3];
+      const body = qStartWithPart[4].trim();
+      if (body.length >= 4) {
+        currentQ = {
+          number,
+          text: '',
+          marks: null,
+          questionType: 'UNKNOWN',
+          commandVerb: 'UNKNOWN',
+          section: currentSection,
+          parts: [],
+          needsReview: false,
+          reviewReasons: [],
+        };
+        const labelM = partLabel.match(/^\(([a-d]|[ivx]{1,4}|\d{1,2})\)$/i);
+        const label = labelM ? labelM[1].toUpperCase() : '';
+        let text = body;
+        const mTail = text.match(MARK_TAIL);
+        let partMarks: number | null = null;
+        if (mTail) {
+          partMarks = parseInt(mTail[1], 10);
+          text = text.slice(0, mTail.index ?? 0).trim();
+        }
+        currentQ.parts.push({ label, text, marks: partMarks });
+        if (!currentQ.text) currentQ.text = text;
+        if (partMarks !== null && currentQ.marks === null) currentQ.marks = partMarks;
+        currentQ.commandVerb = detectCommandVerb(text);
+        currentQ.questionType = detectQuestionType(text, currentQ.number);
+        if (currentQ.marks === null) {
+          currentQ.needsReview = true;
+          currentQ.reviewReasons.push('Marks not identified');
+        }
+        if (currentQ.commandVerb === 'UNKNOWN') {
+          currentQ.needsReview = true;
+          currentQ.reviewReasons.push('Command verb unknown');
+        }
+        questions.push(currentQ);
+        continue;
+      }
+    }
     if (qStart) {
       // ignore very short bullets that are clearly list items, not questions
       const body = qStart[3].trim();

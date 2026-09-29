@@ -297,12 +297,13 @@ export async function ingestPastPaper(
 
     let created = 0;
     if (!parsed.ocrRequired && parsed.questions.length > 0) {
+      // Replace this paper's previously auto-parsed questions once, up front,
+      // before writing the new set. (Doing this inside the loop would delete
+      // each question as soon as it was created.)
+      await tx.pastPaperQuestion.deleteMany({
+        where: { pastPaperId: paper.id, metadata: { startsWith: '{"auto":true' } },
+      });
       for (const q of parsed.questions) {
-        // Replace this paper's auto-parsed questions when re-ingesting
-        // (manual edits are kept only when re-ingestion is explicitly not requested.)
-        await tx.pastPaperQuestion.deleteMany({
-          where: { pastPaperId: paper.id, metadata: { startsWith: '{"auto":true' } },
-        });
         for (let i = 0; i < q.parts.length; i++) {
           // parts are stored under their parent question
         }
@@ -443,8 +444,23 @@ export async function ingestMarkingScheme(
     }
 
     let matched = 0;
-    for (let i = 0; i < parsed.points.length; i++) {
-      const p = parsed.points[i];
+    // Run the deterministic matcher so points get linked to their questions.
+    // Without this, p.matched is always false and NO marking point would ever
+    // be linked to a question.
+    const parserShapedQuestions = paper.questions.map((qq) => ({
+      number: qq.questionNumber,
+      text: qq.text,
+      marks: qq.marks,
+      questionType: qq.questionType,
+      commandVerb: qq.commandVerb,
+      section: qq.section,
+      parts: [] as Array<{ label: string; text: string; marks: number | null }>,
+      needsReview: false,
+      reviewReasons: [] as string[],
+    }));
+    const matchedPoints = matchMarkingPoints(parsed, parserShapedQuestions);
+    for (let i = 0; i < matchedPoints.length; i++) {
+      const p = matchedPoints[i];
       let questionId: string | null = null;
       if (p.matched) {
         const q = paper.questions.find((qq) => qq.questionNumber === p.questionNumber);

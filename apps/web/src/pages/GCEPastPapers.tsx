@@ -397,8 +397,8 @@ export default function GCEPastPapers() {
         setIngestResult(JSON.stringify(r.data, null, 2));
         setRawText(''); setIngestModal(null);
       } else if (kind === 'mock') {
-        if (!projectId) { setIngestError('Project context required for mock exams'); return; }
-        const body = { projectId, subjectId, title: mockExamMeta.title || 'Untitled mock exam' };
+        if (!projectId || !subjectFilter) { setIngestError('Project and subject context required for mock exams'); return; }
+        const body = { projectId, subjectId: subjectFilter, title: mockExamMeta.title || 'Untitled mock exam' };
         const r = await api<{ data: MockExam }>('/gce/mock-exams', { method: 'POST', body: JSON.stringify(body) });
         setIngestResult(JSON.stringify(r.data, null, 2));
         setRawText(''); setIngestModal(null); setMockExams(prev => [...prev, r.data]);
