@@ -83,6 +83,8 @@ model Project {
   mockExams     MockExam[]
   academicProjects AcademicProject[]
   academicReferences AcademicReference[]
+  // Phase 7: Publishing
+  publications     Publication[]
 
   @@index([workspaceId])
   @@index([type])
@@ -167,6 +169,8 @@ model Document {
   exports               ExportJob[]
   // Academic Project Studio domain
   academicProjects      AcademicProject[]
+  // Phase 7: Publishing
+  publications          Publication[]
 
   @@index([projectId])
   @@index([status])
@@ -193,6 +197,10 @@ model DocumentSection {
   academicChapter  AcademicChapter?
   academicTable   AcademicTableFigure?
   evidenceLinks   EvidenceSectionLink[]
+  // Phase 7: Publishing
+  publicationChapters PublicationChapter[]
+  publicationFigures  PublicationFigure[]
+  publicationIndexEntries PublicationIndexEntry[]
 
   @@index([documentId])
   @@index([order])
@@ -213,6 +221,8 @@ model DocumentBlock {
 
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   section    DocumentSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  // Phase 7: Publishing
+  publicationIndexEntries PublicationIndexEntry[]
 
   @@index([documentId])
   @@index([sectionId])
@@ -426,6 +436,7 @@ model Chart {
   academicTables AcademicTableFigure[]
   appendices   AcademicAppendix[]
   findings    Finding[]
+  publicationFigures PublicationFigure[]
 
   @@index([datasetId])
   @@map("charts")
@@ -1072,6 +1083,7 @@ model Table_ {
   academicTables AcademicTableFigure[]
   appendices AcademicAppendix[]
   findings  Finding[]
+  publicationFigures PublicationFigure[]
 
   @@index([datasetId])
   @@map("tables")
@@ -1171,6 +1183,7 @@ model FormattingProfile {
   project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   documents   Document[]
   academicProjects AcademicProject[]
+  publications Publication[]
 
   @@index([projectId])
   @@map("formatting_profiles")
@@ -1611,4 +1624,298 @@ model AuditLog {
   @@index([entityType])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================================================
+// PUBLISHING & BOOK PRODUCTION (Phase 7)
+// ============================================================================
+//
+// Reuse-first: publications map to existing Document/DocumentSection/
+// DocumentBlock. Parts, chapters, front/back matter, glossary, index,
+// figures, tables, contributors, metadata, and validation are all new
+// normalized models that reference existing entities.
+//
+// Every relation declares both sides to satisfy Prisma 5.22.0 validation.
+
+model Publication {
+  id                  String   @id @default(cuid())
+  projectId           String
+  documentId          String?  // Document Studio document for this publication
+  title               String
+  subtitle            String?
+  publicationType     String   // TEXTBOOK | STUDY_GUIDE | GCE_STUDY_PAMPHLET | REVISION_GUIDE | WORKBOOK | ACADEMIC_BOOK | RESEARCH_BOOK | MANUAL | HANDBOOK | COURSE_MATERIAL | TRAINING_MANUAL | GENERAL_BOOK | CUSTOM
+  status              String   @default("DRAFT") // DRAFT | IN_REVIEW | EDITING | FORMATTING | PRODUCTION | READY_FOR_EXPORT | PUBLISHED | ARCHIVED
+  author              String?
+  coAuthors           String   @default("[]") // JSON array of co-author names
+  editor              String?
+  publisher           String?
+  language            String   @default("en")
+  edition             String?
+  publicationYear     String?
+  description         String?
+  keywords            String   @default("[]") // JSON array
+  formattingProfileId String?
+  coverNotes          String?
+  spineText           String?
+  backCoverDescription String?
+  authorBio           String?
+  seriesId            String?
+  volumeNumber        String?
+  trimSize            String?  // e.g. "A4", "A5", "Letter"
+  orientation         String?  // PORTRAIT | LANDSCAPE
+  gutter              String?
+  bleed                String?
+  printNotes          String?
+  isbn10              String?
+  isbn13              String?
+  isbnValidationStatus String? // VALID | INVALID | UNVALIDATED
+  copyrightHolder     String?
+  copyrightYear       String?
+  subject             String?
+  metadata            String   @default("{}") // JSON: custom metadata
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // --- relations (both sides declared) ---
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document            Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  formattingProfile   FormattingProfile? @relation(fields: [formattingProfileId], references: [id])
+  series              PublicationSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+
+  // collection sides of the above
+  // (added below on Project / Document / FormattingProfile / PublicationSeries)
+
+  contributors        PublicationContributor[]
+  parts               PublicationPart[]
+  chapters            PublicationChapter[]
+  frontMatter         PublicationFrontMatter[]
+  backMatter          PublicationBackMatter[]
+  glossary            PublicationGlossary[]
+  figures             PublicationFigure[]
+  indexEntries        PublicationIndexEntry[]
+  validationRuns      PublicationValidationRun[]
+  templates           PublicationTemplate[]
+}
+
+model PublicationContributor {
+  id               String   @id @default(cuid())
+  publicationId    String
+  name             String
+  role             String   // AUTHOR | CO_AUTHOR | EDITOR | CONTRIBUTOR | TRANSLATOR | ILLUSTRATOR | FOREWORD_AUTHOR | PHOTOGRAPHER | OTHER
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  publication      Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@index([publicationId])
+  @@map("publication_contributors")
+}
+
+model PublicationPart {
+  id               String   @id @default(cuid())
+  publicationId    String
+  partNumber       Int
+  title            String
+  description      String?
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  publication      Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  chapters         PublicationChapter[]
+
+  @@unique([publicationId, partNumber])
+  @@index([publicationId])
+  @@map("publication_parts")
+}
+
+model PublicationChapter {
+  id               String   @id @default(cuid())
+  publicationId    String
+  partId           String?
+  documentSectionId String? // corresponding Document Studio section
+  chapterNumber    Int
+  title            String
+  subtitle         String?
+  description      String?
+  wordTarget       Int?
+  order            Int      @default(0)
+  status           String   @default("DRAFT") // DRAFT | AI_GENERATED | USER_EDITED | NEEDS_REVIEW | VERIFIED | APPROVED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  publication      Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  part             PublicationPart? @relation(fields: [partId], references: [id], onDelete: SetNull)
+  documentSection  DocumentSection? @relation(fields: [documentSectionId], references: [id], onDelete: SetNull)
+  glossary         PublicationGlossary[]
+
+  @@unique([publicationId, chapterNumber])
+  @@index([publicationId])
+  @@index([partId])
+  @@index([documentSectionId])
+  @@map("publication_chapters")
+}
+
+model PublicationFrontMatter {
+  id               String   @id @default(cuid())
+  publicationId    String
+  kind             String   // HALF_TITLE | TITLE_PAGE | COPYRIGHT_PAGE | DEDICATION | EPIGRAPH | FOREWORD | PREFACE | ACKNOWLEDGEMENTS | INTRODUCTION | TABLE_OF_CONTENTS | LIST_OF_FIGURES | LIST_OF_TABLES | LIST_OF_ABBREVIATIONS | AUTHOR_BIOGRAPHY | PUBLISHER_INFORMATION
+  title            String
+  content          String   @default("")
+  required         Boolean  @default(true)
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  publication      Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@unique([publicationId, kind])
+  @@index([publicationId])
+  @@map("publication_front_matter")
+}
+
+model PublicationBackMatter {
+  id               String   @id @default(cuid())
+  publicationId    String
+  kind             String   // REFERENCES | BIBLIOGRAPHY | GLOSSARY | INDEX | FURTHER_READING | ABOUT_THE_AUTHOR | APPENDICES | ANSWER_KEY | NOTES
+  title            String
+  content          String   @default("")
+  required         Boolean  @default(true)
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  publication      Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@unique([publicationId, kind])
+  @@index([publicationId])
+  @@map("publication_back_matter")
+}
+
+model PublicationGlossary {
+  id               String   @id @default(cuid())
+  publicationId    String
+  term             String
+  definition       String
+  pronunciation    String?
+  chapterId        String?
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  publication      Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  chapter          PublicationChapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+
+  @@index([publicationId])
+  @@map("publication_glossary")
+}
+
+model PublicationIndexEntry {
+  id               String   @id @default(cuid())
+  publicationId    String
+  term             String
+  subterm          String?
+  sectionId        String?  // DocumentSection reference
+  blockId          String?  // DocumentBlock reference
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  publication      Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  section          DocumentSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  block            DocumentBlock? @relation(fields: [blockId], references: [id], onDelete: SetNull)
+
+  @@index([publicationId])
+  @@map("publication_index_entries")
+}
+
+model PublicationFigure {
+  id               String   @id @default(cuid())
+  publicationId    String
+  kind             String   // FIGURE | TABLE | CHART | IMAGE
+  number           Int
+  label            String   // e.g. "Figure 2.1"
+  caption          String
+  chartId          String?  // Data Lab chart
+  tableId          String?  // Data Lab table
+  documentSectionId String?
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  publication      Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  chart            Chart? @relation(fields: [chartId], references: [id], onDelete: SetNull)
+  table            Table_? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  documentSection  DocumentSection? @relation(fields: [documentSectionId], references: [id], onDelete: SetNull)
+
+  @@unique([publicationId, kind, number])
+  @@index([publicationId])
+  @@map("publication_figures")
+}
+
+model PublicationSeries {
+  id               String   @id @default(cuid())
+  name             String
+  description      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  publications     Publication[]
+
+  @@map("publication_series")
+}
+
+model PublicationTemplate {
+  id               String   @id @default(cuid())
+  publicationType  String   // TEXTBOOK | STUDY_GUIDE | GCE_STUDY_PAMPHLET | REVISION_GUIDE | WORKBOOK | ACADEMIC_BOOK | RESEARCH_BOOK | MANUAL | HANDBOOK | COURSE_MATERIAL | TRAINING_MANUAL | GENERAL_BOOK | CUSTOM
+  name             String
+  description      String?
+  frontMatter      String   @default("[]") // JSON array of kinds
+  backMatter       String   @default("[]") // JSON array of kinds
+  chapterStructure String   @default("[]") // JSON array of standard sections
+  formattingPreset String?
+  citationStyle    String   @default("APA")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  publications     Publication[]
+
+  @@unique([publicationType])
+  @@map("publication_templates")
+}
+
+model PublicationValidationRun {
+  id               String   @id @default(cuid())
+  publicationId    String
+  status           String   @default("COMPLETED") // COMPLETED | FAILED
+  passedCount      Int      @default(0)
+  warningCount     Int      @default(0)
+  errorCount       Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  publication      Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  issues           PublicationValidationIssue[]
+
+  @@index([publicationId])
+  @@map("publication_validation_runs")
+}
+
+model PublicationValidationIssue {
+  id               String   @id @default(cuid())
+  validationRunId  String
+  category         String   // STRUCTURE | CONTENT | REFERENCE | FIGURE | TABLE | PRODUCTION | EXPORT
+  severity         String   // PASS | WARNING | ERROR | NEEDS_REVIEW
+  rule             String
+  message          String
+  entityId         String?
+  entityType       String?
+  resolved         Boolean  @default(false)
+  resolutionNote   String?
+  createdAt        DateTime @default(now())
+  resolvedAt       DateTime?
+
+  validationRun    PublicationValidationRun @relation(fields: [validationRunId], references: [id], onDelete: Cascade)
+
+  @@index([validationRunId])
+  @@index([resolved])
+  @@map("publication_validation_issues")
 }
