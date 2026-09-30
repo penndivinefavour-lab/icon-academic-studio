@@ -85,6 +85,9 @@ model Project {
   academicReferences AcademicReference[]
   // Phase 7: Publishing
   publications     Publication[]
+  // Phase 8: AI Intelligence
+  aiGenerations    AIGeneration[]
+  aiConversations  AIConversation[]
 
   @@index([workspaceId])
   @@index([type])
@@ -1106,6 +1109,7 @@ model AIProvider {
 
   models_list  AIModel[]
   apiKeys      APIKey[]
+  conversations AIConversation[]
 
   @@map("ai_providers")
 }
@@ -1134,6 +1138,7 @@ model APIKey {
   providerId  String
   keyName     String
   keyPrefix   String   // first 4 chars only
+  keyValue    String?  // actual key value (stored encrypted in production)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1919,3 +1924,72 @@ model PublicationValidationIssue {
   @@index([resolved])
   @@map("publication_validation_issues")
 }
+
+// ============================================================================
+// PHASE 8 — AI ACADEMIC INTELLIGENCE
+// ============================================================================
+
+model AIGeneration {
+  id                  String   @id @default(cuid())
+  projectId           String
+  contextType         String?  // RESEARCH | ACADEMIC_PROJECT | PUBLICATION | DATA_LAB | GCE
+  contextId           String?
+  operation           String   // SUMMARIZE | EXPLAIN | DRAFT_SECTION | CREATE_OUTLINE | ...
+  prompt              String
+  response            String?
+  status              String   @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
+  reviewStatus        String   @default("NEEDS_REVIEW") // AI_GENERATED, NEEDS_REVIEW, USER_EDITED, VERIFIED, REJECTED
+  usedProviders       String?  // JSON array of provider names used
+  modelUsed           String?
+  tokenUsage          String?  // JSON: { input, output, total }
+  error               String?
+  safetyFlags         String?  // JSON: potential fabrication warnings
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  project             Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  evidenceReferences  AIEvidenceReference[]
+
+  @@index([projectId])
+  @@index([contextType, contextId])
+  @@index([status])
+  @@index([reviewStatus])
+  @@map("ai_generations")
+}
+
+model AIConversation {
+  id                  String   @id @default(cuid())
+  projectId           String
+  title               String
+  contextType         String?  // RESEARCH | ACADEMIC_PROJECT | PUBLICATION | DATA_LAB | GCE
+  contextId           String?
+  messages            String   @default("[]") // JSON array of { role, content }
+  aiProviderId        String?
+  modelId             String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  project             Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  aiProvider          AIProvider? @relation(fields: [aiProviderId], references: [id])
+
+  @@index([projectId])
+  @@map("ai_conversations")
+}
+
+model AIEvidenceReference {
+  id                  String   @id @default(cuid())
+  generationId        String
+  sourceId            String?
+  evidenceItemId      String?
+  citationId          String?
+  sectionId           String?  // DocumentSection or PublicationChapter
+  claimText           String
+  verificationStatus  String   @default("UNVERIFIED") // UNVERIFIED, VERIFIED, FLAGGED
+  createdAt           DateTime @default(now())
+
+  generation          AIGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@index([generationId])
+  @@map("ai_evidence_references")
+}
+

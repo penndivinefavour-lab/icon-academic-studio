@@ -12,6 +12,7 @@ import DocumentStudio from './pages/DocumentStudio';
 import GCEPastPapers from './pages/GCEPastPapers';
 import AcademicStudio from './pages/AcademicStudio';
 import PublishingStudio from './pages/PublishingStudio';
+import AIWorkspace from './pages/AIWorkspace';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -25,8 +26,9 @@ function App() {
     { path: '/gce-past-papers', label: 'GCE Past Papers', icon: '🎓' },
     { path: '/academic-studio', label: 'Academic Studio', icon: '🎓' },
     { path: '/publishing', label: 'Publishing', icon: '📚' },
+    { path: '/ai', label: 'AI Workspace', icon: '🤖' },
     { path: '/templates', label: 'Templates', icon: '📋' },
-    { path: '/ai-providers', label: 'AI Providers', icon: '🤖' },
+    { path: '/ai-providers', label: 'AI Providers', icon: '⚙️' },
     { path: '/settings', label: 'Settings', icon: '⚙️' },
   ];
 
@@ -116,6 +118,7 @@ function App() {
               <Route path="/gce-past-papers" element={<GCEPastPapers />} />
               <Route path="/academic-studio" element={<AcademicStudio />} />
               <Route path="/publishing" element={<PublishingStudio />} />
+              <Route path="/ai" element={<AIWorkspace />} />
               <Route path="/templates" element={<Templates />} />
               <Route path="/ai-providers" element={<AIProviders />} />
               <Route path="/settings" element={<Settings />} />
