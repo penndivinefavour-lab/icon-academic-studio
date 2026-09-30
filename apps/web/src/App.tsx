@@ -11,6 +11,7 @@ import Settings from './pages/Settings';
 import DocumentStudio from './pages/DocumentStudio';
 import GCEPastPapers from './pages/GCEPastPapers';
 import AcademicStudio from './pages/AcademicStudio';
+import PublishingStudio from './pages/PublishingStudio';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -23,6 +24,7 @@ function App() {
     { path: '/data-lab', label: 'Data Lab', icon: '📈' },
     { path: '/gce-past-papers', label: 'GCE Past Papers', icon: '🎓' },
     { path: '/academic-studio', label: 'Academic Studio', icon: '🎓' },
+    { path: '/publishing', label: 'Publishing', icon: '📚' },
     { path: '/templates', label: 'Templates', icon: '📋' },
     { path: '/ai-providers', label: 'AI Providers', icon: '🤖' },
     { path: '/settings', label: 'Settings', icon: '⚙️' },
@@ -55,14 +57,18 @@ function App() {
           {/* Navigation */}
           <nav className="flex-1 p-2">
             <ul className="space-y-1">
-              {navItems.map((item) => (
+              { navItems.map((item) => (
                 <li key={item.path}>
                   <Link
                     to={item.path}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-surface-600 hover:bg-surface-100 hover:text-surface-900 transition-colors"
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      window.location.pathname === item.path
+                        ? 'bg-primary-100 text-primary-700 font-medium'
+                        : 'text-surface-600 hover:bg-surface-100 hover:text-surface-900'
+                    }`}
                   >
                     <span className="text-xl">{item.icon}</span>
-                    {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
+                    {sidebarOpen && <span className="text-sm">{item.label}</span>}
                   </Link>
                 </li>
               ))}
@@ -109,6 +115,7 @@ function App() {
               <Route path="/data-lab" element={<DataLab />} />
               <Route path="/gce-past-papers" element={<GCEPastPapers />} />
               <Route path="/academic-studio" element={<AcademicStudio />} />
+              <Route path="/publishing" element={<PublishingStudio />} />
               <Route path="/templates" element={<Templates />} />
               <Route path="/ai-providers" element={<AIProviders />} />
               <Route path="/settings" element={<Settings />} />

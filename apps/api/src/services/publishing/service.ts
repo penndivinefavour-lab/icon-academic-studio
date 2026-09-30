@@ -75,6 +75,7 @@ export interface PublicationUpdateInput {
   spineText?: string;
   backCoverDescription?: string;
   authorBio?: string;
+  documentId?: string;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────
