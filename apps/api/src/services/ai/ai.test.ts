@@ -50,12 +50,16 @@ describe('AI Generation', () => {
       data: { name: 'AI Test Project', type: 'ACADEMIC_PROJECT' },
     });
     projectId = project.id;
+    // Clean up any leftover test providers from other tests
+    await prisma.aIProvider.deleteMany({ where: { name: 'Test Provider' } }).catch(() => {});
   });
 
   afterAll(async () => {
     try {
       if (generationId) await prisma.aIGeneration.delete({ where: { id: generationId } }).catch(() => {});
       if (projectId) await prisma.project.delete({ where: { id: projectId } }).catch(() => {});
+      // Clean up test provider so other tests don't find it
+      await prisma.aIProvider.deleteMany({ where: { name: 'Test Provider' } }).catch(() => {});
     } catch {}
   });
 

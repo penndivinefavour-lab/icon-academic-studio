@@ -237,6 +237,9 @@ describe('AI Academic Integration E2E', () => {
 
   describe('Provider Configuration Test', () => {
     it('reports when no provider is configured', async () => {
+      // Delete any test provider first to ensure we're testing the no-provider case
+      await prisma.aIProvider.deleteMany({ where: { name: 'Test Provider' } }).catch(() => {});
+
       const result = await generateAI({
         projectId,
         operation: 'explain-concept',
@@ -244,8 +247,8 @@ describe('AI Academic Integration E2E', () => {
       });
 
       // Since no provider is configured in test environment, should get appropriate error
-      expect(result.warning).toContain('No AI provider configured') || 
-                             expect(result.status).toBe('FAILED');
+      expect(result.warning).toContain('No AI provider configured');
+      expect(result.status).toBe('FAILED');
     });
   });
 });

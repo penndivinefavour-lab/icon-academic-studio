@@ -8,15 +8,15 @@
   }
 
   h1 {
-    @apply text-3xl font-bold text-surface-950;
+    @apply text-3xl font-bold text-brand-navy;
   }
 
   h2 {
-    @apply text-2xl font-semibold text-surface-900;
+    @apply text-2xl font-semibold text-brand-navy;
   }
 
   h3 {
-    @apply text-xl font-semibold text-surface-800;
+    @apply text-xl font-semibold text-brand-navy;
   }
 
   a {
@@ -25,22 +25,39 @@
 }
 
 @layer components {
+  /* Primary action buttons — ICON Purple */
   .btn-primary {
-    @apply px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium;
+    @apply px-4 py-2 bg-brand-purple text-white rounded-lg 
+           hover:bg-brand-purple/90 active:bg-brand-purple/80 
+           transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
+  /* Secondary buttons — navy with purple hover */
   .btn-secondary {
-    @apply px-4 py-2 bg-surface-200 text-surface-800 rounded-lg hover:bg-surface-300 transition-colors font-medium;
+    @apply px-4 py-2 bg-brand-navy text-white rounded-lg 
+           hover:bg-brand-navy/90 transition-colors font-medium disabled:opacity-50;
   }
 
+  /* Outline buttons with gold accent */
+  .btn-outline {
+    @apply px-4 py-2 bg-transparent border border-brand-navy 
+           text-brand-navy rounded-lg hover:bg-brand-navy/5 
+           transition-colors font-medium;
+  }
+
+  /* Cards */
   .card {
     @apply bg-white rounded-lg shadow-sm border border-surface-200 p-6;
   }
 
+  /* Inputs */
   .input {
-    @apply w-full px-3 py-2 border border-surface-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-3 py-2 border border-surface-300 rounded-lg 
+           focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent
+           bg-white text-surface-900;
   }
 
+  /* Badges */
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
@@ -59,5 +76,9 @@
 
   .badge-info {
     @apply badge bg-blue-100 text-blue-800;
+  }
+
+  .badge-brand {
+    @apply badge bg-brand-purple/10 text-brand-purple;
   }
 }
