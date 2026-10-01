@@ -12,6 +12,7 @@ import {
   AcademicTemplateDef,
 } from './templates.js';
 import { formatInText, formatReferenceList, parseRawReference, ReferenceFields } from './citationFormats.js';
+import { logActivity } from '../project/activity.js';
 
 // ---------------------------------------------------------------------------
 // Projects
@@ -56,6 +57,14 @@ export async function createAcademicProject(input: CreateAcademicProjectInput) {
       metadata: JSON.stringify(input.metadata || {}),
     },
     include: { chapters: true, objectives: true },
+  });
+
+  // Log project creation activity
+  await logActivity({
+    action: 'PROJECT_CREATED',
+    entityType: 'AcademicProject',
+    entityId: ap.id,
+    changes: { projectId: input.projectId, title: input.title, projectType: input.projectType },
   });
 
   if (template) {
@@ -127,7 +136,7 @@ export async function applyTemplateStructure(academicProjectId: string, template
 }
 
 export async function getAcademicProject(id: string) {
-  return prisma.academicProject.findUnique({
+  const ap = await prisma.academicProject.findUnique({
     where: { id },
     include: {
       chapters: { orderBy: { chapterNumber: 'asc' } },
@@ -152,6 +161,17 @@ export async function getAcademicProject(id: string) {
       formattingProfile: true,
     },
   });
+
+  // Log project view activity
+  if (ap) {
+    await logActivity({
+      action: 'PROJECT_VIEWED',
+      entityType: 'AcademicProject',
+      entityId: id,
+    });
+  }
+
+  return ap;
 }
 
 export async function listAcademicProjects(projectId: string) {
@@ -192,7 +212,7 @@ export async function createChapter(input: {
   isFrontMatter?: boolean;
   isAppendix?: boolean;
 }) {
-  return prisma.academicChapter.create({
+  const chapter = await prisma.academicChapter.create({
     data: {
       academicProjectId: input.academicProjectId,
       chapterNumber: input.chapterNumber,
@@ -205,6 +225,16 @@ export async function createChapter(input: {
       order: input.chapterNumber,
     },
   });
+
+  // Log chapter creation activity
+  await logActivity({
+    action: 'CHAPTER_CREATED',
+    entityType: 'Chapter',
+    entityId: chapter.id,
+    changes: { title: input.title, chapterNumber: input.chapterNumber },
+  });
+
+  return chapter;
 }
 
 export async function updateChapter(id: string, data: Record<string, unknown>) {

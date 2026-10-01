@@ -12,6 +12,7 @@ import { citationsRouter } from './citations.js';
 import { gceRouter } from './gce.js';
 import { academicProjectsRouter } from './academicProjects.js';
 import { publishingRouter } from './publishing.js';
+import { projectActivityRouter } from './activities.js';
 
 export const apiRoutes = Router();
 
@@ -28,3 +29,4 @@ apiRoutes.use('/citations', citationsRouter);
 apiRoutes.use('/gce', gceRouter);
 apiRoutes.use('/academic-projects', academicProjectsRouter);
 apiRoutes.use('/publishing', publishingRouter);
+apiRoutes.use('/activities', projectActivityRouter);
