@@ -1,11 +1,16 @@
 /**
- * ICON Academic Studio — Project Activity Tracking (Phase 9.1 Hardened)
+ * ICON Academic Studio — Project Activity Tracking (Phase 9.1.1 Hardened)
  *
  * Logs meaningful events to AuditLog without storing sensitive prompt contents
  * or provider credentials. Events are queryable by entity type and ID.
  *
- * SECURITY: Activity endpoints require project ownership verification.
- * Responses minimize data exposure by default.
+ * SECURITY MODEL:
+ * This application is LOCAL-FIRST and SINGLE-USER. There is NO user authentication.
+ * Access control is based on PROJECT EXISTENCE only.
+ * Anyone with a valid projectId can access project activity.
+ *
+ * IMPORTANT: Project existence checking is NOT authentication or authorization.
+ * It is simply a query validation step to prevent access to non-existent projects.
  */
 import { prisma } from '@icon-academic/db';
 import type { Prisma } from '@icon-academic/db';
@@ -37,18 +42,54 @@ export async function logActivity(event: ActivityEvent) {
 
 export interface GetProjectActivityParams {
   projectId: string;
-  userId?: string; // Optional: filter to user's own activities
+  userId?: string; // IGNORED: No user authentication exists in local-first mode
   limit?: number;
   offset?: number;
   entityType?: string;
 }
 
+// Whitelist of valid entity types for filtering
+const VALID_ENTITY_TYPES = new Set([
+  'Project',
+  'AcademicProject',
+  'Chapter',
+  'Source',
+  'EvidenceItem',
+  'Dataset',
+  'Analysis',
+  'Document',
+  'Publication',
+  'AIGeneration',
+]);
+
 /**
- * Get project activity with authorization check.
+ * Get project activity with project existence validation.
  * Returns minimized response by default.
+ *
+ * NOTE: This does NOT perform authentication or authorization.
+ * It only verifies that the requested project exists.
  */
 export async function getProjectActivity(params: GetProjectActivityParams) {
-  const { projectId, userId, limit = 20, offset = 0, entityType } = params;
+  const { projectId, limit = 20, offset = 0, entityType } = params;
+
+  // Validate projectId is a non-empty string
+  if (!projectId || typeof projectId !== 'string' || projectId.trim().length === 0) {
+    return {
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: 'Invalid projectId' },
+      data: [],
+      meta: { total: 0, page: 1, totalPages: 0 },
+    };
+  }
+
+  // Validate and cap pagination parameters
+  const safeLimit = Math.min(Math.max(parseInt(limit as any) || 20, 1), 100);
+  const safeOffset = Math.max(parseInt(offset as any) || 0, 0);
+
+  // Validate entityType against whitelist
+  const safeEntityType = entityType && VALID_ENTITY_TYPES.has(entityType)
+    ? entityType
+    : undefined;
 
   // Verify project exists and we have valid access
   const project = await prisma.project.findUnique({
@@ -88,14 +129,8 @@ export async function getProjectActivity(params: GetProjectActivityParams) {
           ...(academicProject.documentId ? [{ entityType: 'Publication', entityId: academicProject.documentId }] : []),
         ],
       },
-      ...(entityType ? [{ entityType }] : []),
-      // If userId provided, only return that user's activities OR all if owner
-      userId ? {
-        OR: [
-          { userId },
-          { userId: null }, // Also include system events
-        ],
-      } : {},
+      ...(safeEntityType ? [{ entityType: safeEntityType }] : []),
+      // NOTE: No userId filtering — no authentication exists in local-first mode
     ],
   };
 
@@ -103,8 +138,8 @@ export async function getProjectActivity(params: GetProjectActivityParams) {
     prisma.auditLog.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      skip: offset,
-      take: limit,
+      skip: safeOffset,
+      take: safeLimit,
       // Minimize response: exclude sensitive fields
       select: {
         id: true,
@@ -127,7 +162,7 @@ export async function getProjectActivity(params: GetProjectActivityParams) {
   return {
     success: true,
     data: enrichedEvents,
-    meta: { total, page: Math.floor(offset / limit) + 1, totalPages: Math.ceil(total / limit) },
+    meta: { total, page: Math.floor(safeOffset / safeLimit) + 1, totalPages: Math.ceil(total / safeLimit) },
   };
 }
 

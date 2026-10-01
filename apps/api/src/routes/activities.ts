@@ -4,18 +4,20 @@ import { logActivity, getProjectActivity, getNextAction } from '../services/proj
 export const projectActivityRouter = Router();
 
 // POST /api/v1/activities - Log an activity event
+// Security: Server-derived metadata only, no client-supplied identity
 projectActivityRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { action, entityType, entityId, changes, ipAddress, userAgent } = req.body;
-    
+    const { action, entityType, entityId, changes } = req.body;
+
     if (!action || !entityType) {
-      return res.status(400).json({ 
-        success: false, 
-        error: { code: 'VALIDATION_ERROR', message: 'action and entityType are required' } 
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'action and entityType are required' }
       });
     }
 
-    // Log with server-derived metadata, NOT client-supplied userId
+    // IMPORTANT: userId is NOT accepted from client — server derives metadata
+    // Log with server-derived metadata, NOT client-supplied values
     const event = await logActivity({
       action,
       entityType: entityType as any,
@@ -24,38 +26,51 @@ projectActivityRouter.post('/', async (req: Request, res: Response) => {
       ipAddress: req.ip || undefined,
       userAgent: req.headers['user-agent'] || undefined,
     });
-    
+
     res.status(201).json({ success: true, data: { id: event.id, action: event.action } });
   } catch (error: any) {
     console.error('Error logging activity:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: { code: 'INTERNAL_ERROR', message: error.message } 
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to log activity' }
     });
   }
 });
 
 // GET /api/v1/activities/project/:projectId - Get activity for a project
-// Authorization: Caller must own the project (enforced via project lookup)
+// Security: Project existence validation only (local-first, no authentication)
 projectActivityRouter.get('/project/:projectId', async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
-    
+
     // Validate projectId format
-    if (!projectId || typeof projectId !== 'string') {
-      return res.status(400).json({ 
-        success: false, 
-        error: { code: 'VALIDATION_ERROR', message: 'projectId is required' } 
+    if (!projectId || typeof projectId !== 'string' || projectId.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid projectId' }
       });
     }
 
-    const limit = parseInt(req.query.limit as string) || 20;
-    const offset = parseInt(req.query.offset as string) || 0;
-    const entityType = req.query.entityType as string | undefined;
+    // Validate pagination with bounds
+    const rawLimit = parseInt(req.query.limit as string);
+    const limit = isNaN(rawLimit) ? 20 : Math.min(Math.max(rawLimit, 1), 100);
 
-    // Call service with authorization check built-in
+    const rawOffset = parseInt(req.query.offset as string);
+    const offset = isNaN(rawOffset) ? 0 : Math.max(rawOffset, 0);
+
+    // Validate entityType against whitelist
+    const rawEntityType = req.query.entityType as string | undefined;
+    const validEntityTypes = new Set([
+      'Project', 'AcademicProject', 'Chapter', 'Source', 'EvidenceItem',
+      'Dataset', 'Analysis', 'Document', 'Publication', 'AIGeneration'
+    ]);
+    const entityType = rawEntityType && validEntityTypes.has(rawEntityType)
+      ? rawEntityType
+      : undefined;
+
+    // Call service with validation
     const result = await getProjectActivity({ projectId, limit, offset, entityType });
-    
+
     if (!result.success) {
       return res.status(404).json(result.error);
     }
@@ -63,9 +78,9 @@ projectActivityRouter.get('/project/:projectId', async (req: Request, res: Respo
     res.json(result);
   } catch (error: any) {
     console.error('Error fetching project activity:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: { code: 'INTERNAL_ERROR', message: error.message } 
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch activity' }
     });
   }
 });

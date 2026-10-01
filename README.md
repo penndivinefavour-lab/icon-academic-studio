@@ -63,8 +63,9 @@ See [ROADMAP.md](./ROADMAP.md) for full progression.
 | 8.1 | COMPLETE | Integration Hardening |
 | 8.1.1 | COMPLETE | Brand Correction & E2E Proof |
 | 9 | COMPLETE | Workflow Orchestration & Command Center |
-| 9.1 | COMPLETE | Security Hardening & Activity UI |
-| 10 | Planned | Android Companion |
+|| 9.1 | COMPLETE | Security Hardening & Activity UI |
+|| 9.1.1 | COMPLETE | Security Model Correction & Final Acceptance |
+|| 10 | Planned | Android Companion |
 | 11 | Planned | Production Hardening |
 
 ## Key Features (Phase 9)
@@ -99,10 +100,12 @@ See [ROADMAP.md](./ROADMAP.md) for full progression.
 - Uploaded files validated before processing
 - AI-generated content marked as such
 - Source provenance tracked where practical
-- Project-scoped authorization enforced server-side
-- Activity responses minimize sensitive field exposure
+- Project-scoped queries prevent cross-project data leakage
+- Activity responses minimize sensitive field exposure (no userId, changes, IP logged)
+- **Local-first architecture**: No user authentication — project existence validation only
+- **Single-user design**: The application assumes the local workstation is trusted
 
-See [SECURITY.md](./SECURITY.md).
+See [SECURITY.md](./SECURITY.md) and [docs/PHASE_9_1_1_AUDIT.md](./docs/PHASE_9_1_1_AUDIT.md) for details.
 
 ## Documentation
 
