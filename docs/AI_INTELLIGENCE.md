@@ -48,149 +48,86 @@ POST   /ai/providers/:id/models  - Add model
 
 ## Operations Catalog
 
-### Research
-- **summarize-source**: Summarize a research source
-- **explain-concept**: Explain an academic concept
-- **extract-claims**: Extract key claims from sources
-- **compare-sources**: Compare multiple sources
-- **identify-evidence**: Identify supporting/conflicting evidence
-- **generate-research-questions**: Generate research questions
-- **literature-synthesis**: Synthesize literature findings
-
-### Academic Writing
-- **create-outline**: Create content outline
-- **draft-section**: Draft a section
-- **expand-section**: Expand a section
-- **condense-section**: Condense a section
-- **rewrite-for-clarity**: Rewrite for clarity
-- **improve-tone**: Improve academic tone
-- **draft-conclusion**: Draft conclusion
-- **draft-recommendations**: Draft recommendations
-
-### Methodology
-- **draft-methodology**: Draft methodology section
-- **draft-objectives**: Draft objectives
-- **draft-hypotheses**: Draft hypotheses
-- **suggest-variables**: Suggest variables
-- **draft-questionnaire**: Draft questionnaire items
-
-### Data Analysis
-- **explain-dataset**: Explain dataset characteristics
-- **explain-result**: Explain Data Lab result
-- **explain-chart**: Explain chart visualization
-- **draft-findings**: Draft findings narrative
-- **draft-discussion**: Draft discussion based on results
-
-### GCE
-- **explain-question**: Explain historical exam question
-- **generate-practice**: Generate practice questions
-- **explain-marking**: Explain marking scheme
-- **create-revision-notes**: Create revision notes
-- **create-study-guide**: Create study guide content
-
-### Publication
-- **draft-chapter**: Draft publication chapter
-- **summarize-chapter**: Summarize chapter
-- **create-intro**: Create introductory section
-- **create-conclusion**: Create concluding section
-- **explain-glossary-term**: Explain glossary term
+| Category | Operations | Description |
+|----------|------------|-------------|
+| Research | summarize-source, explain-concept, extract-claims, compare-sources, identify-evidence, generate-research-questions, literature-synthesis | Research assistance |
+| Academic Writing | create-outline, draft-section, expand-section, condense-section, rewrite-for-clarity, improve-tone, draft-conclusion, draft-recommendations | Writing assistance |
+| Methodology | draft-methodology, draft-objectives, draft-hypotheses, suggest-variables | Research methodology |
+| Data Analysis | explain-dataset, explain-result, explain-chart, draft-findings, draft-discussion | Data Lab integration |
+| GCE Studies | explain-question, generate-practice, explain-marking, create-revision-notes | Exam paper analysis |
+| Publication | draft-chapter, summarize-chapter, create-intro, create-conclusion, explain-glossary-term | Publishing workflow |
 
 ## Grounding Mechanism
 
-All AI operations receive grounded context:
-1. Selected sources/evidence are fetched from database
-2. Context is injected into prompt under `GROUNDING CONTEXT:` section
-3. Generated output preserves bracketed citations to evidence IDs
-4. User reviews citations for accuracy before accepting
+All AI generations are grounded in actual database records:
 
-## Safety Measures
+- **Research Context**: Loads Sources, EvidenceItems, Citations from database
+- **Data Lab Context**: Loads Datasets, Analysis results, Charts with real calculated statistics
+- **GCE Context**: Loads ExamBoards, Subjects, Syllabi, PastPapers, Questions, MarkingSchemes, MarkingPoints
+- **Publication Context**: Loads Publication data, Chapters, Glossary terms
 
-### Fabrication Prevention
-- Integrity preamble states rules explicitly
-- Post-generation check flags URLs/DOIs for review
-- Empty source context returns "Insufficient evidence" not hallucinated content
+Source/evidence content is explicitly marked as "untrusted source material" in prompts to prevent fabrication.
 
-### Prompt Injection Defense
-- Source text placed in DATA section, not instructions
-- Dangerous patterns detected and flagged
-- System/user/source content strictly separated
+## Security Features
 
-### Academic Integrity
-- All outputs start as NEEDS_REVIEW
-- Verification is explicit user action only
-- Rejected content tracked separately
-- Generation history preserved for audit trail
+1. **Prompt Injection Defense**: `sanitizePrompt()` removes dangerous patterns
+2. **Project Isolation**: All queries scoped to `projectId`
+3. **API Key Protection**: Keys resolved from relation, never exposed in responses
+4. **No Fabrication Guarantee**: Integrity preamble instructs model to cite sources
+5. **Review Gate Enforcement**: AI_GENERATED → NEEDS_REVIEW → USER_EDITED → VERIFIED/REJECTED
 
-## Database Models
+## Deterministic Test Provider (Phase 8.1.1)
 
-### AIGeneration
-```prisma
-model AIGeneration {
-  id            String   @id @default(cuid())
-  projectId     String
-  contextType   String?  // RESEARCH | ACADEMIC_PROJECT | PUBLICATION | DATA_LAB | GCE
-  contextId     String?
-  operation     String
-  prompt        String
-  response      String?
-  status        String   @default("PENDING")
-  reviewStatus  String   @default("NEEDS_REVIEW")
-  usedProviders String?
-  modelUsed     String?
-  safetyFlags   String?  // JSON array of flagged concerns
-  error         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+For testing purposes, a deterministic test provider returns fixed academic content:
 
-  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  evidences AIEvidenceReference[]
+- Activated via `(globalThis as any).__ICON_AI_TEST_MODE__ = true`
+- Maps operation descriptions to predefined responses
+- Enables reproducible E2E testing without external API calls
+- Response content verified via string matching assertions
 
-  @@index([projectId])
-  @@index([contextType, contextId])
-  @@index([status])
-  @@index([reviewStatus])
-  @@map("ai_generations")
-}
+## Publishing → Export Integration
+
+The complete AI → Publishing → Document → Export chain is tested:
+
+```typescript
+// Example pipeline verification
+const generation = await generateAI({ ... });
+expect(generation.reviewStatus).toBe('NEEDS_REVIEW'); // Not auto-verified
+
+await updateReviewStatus(generation.id, 'USER_EDITED');
+await updateReviewStatus(generation.id, 'VERIFIED');
+
+const publication = await createPublication({ ... });
+const chapter = await addChapter(publication.id, { ... });
+const docResult = await syncToDocument(publication.id);
+const docxBuf = await generateDocx(docResult.documentId);
+
+expect(docxBuf.length).toBeGreaterThan(1000); // Valid DOCX
+expect(docxBuf.includes(Buffer.from('word/'))).toBe(true); // ZIP structure
 ```
 
-### AIConversation
-```prisma
-model AIConversation {
-  id            String   @id @default(cuid())
-  projectId     String
-  contextType   String?
-  contextId     String?
-  title         String?
-  messages      String   @default("[]")  // JSON array
-  aiProviderId  String?
-  modelId       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+## GCE Marking Guidance Integration
 
-  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  aiProvider AIProvider? @relation(fields: [aiProviderId], references: [id])
-  model AIModel?   @relation(fields: [modelId], references: [id])
+Full historical grounding chain verified:
 
-  @@index([projectId])
-  @@map("ai_conversations")
-}
+```
+ExamBoard → Subject → Syllabus → SyllabusTopic
+         → PastPaper → PastPaperQuestion → MarkingScheme → MarkingPoint → AI
 ```
 
-### AIEvidenceReference
-```prisma
-model AIEvidenceReference {
-  id              String   @id @default(cuid())
-  generationId    String
-  sourceId        String?
-  evidenceItemId  String?
-  citationId      String?
-  claimText       String
-  referencedAt    Int      @default(0)  // position in response
-  createdAt       DateTime @default(now())
+Key test assertions:
+- Historical questions contain real exam board data
+- Marking points are loaded from database
+- No future exam prediction language is generated
+- Prompt includes actual marking guidance text
 
-  generation AIGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+## Limitations
 
-  @@index([generationId])
-  @@map("ai_evidence_references")
-}
-```
+- No streaming support (synchronous generation only)
+- Requires at least one active AI provider for actual generation
+- Provider API keys must be configured in Settings → AI Providers
+- DOCX export requires JSZip or similar library for XML extraction in tests
+
+---
+
+*Last updated: 2026-10-01 | Phase 8.1.1*
