@@ -159,6 +159,6 @@ describe('Grounded Generation', () => {
     const { buildGroundedPrompt } = await import('./generation.js');
     const prompt = buildGroundedPrompt('explain-concept', {}, 'Test instruction');
     expect(prompt).toContain('Test instruction');
-    expect(prompt).toContain('GROUNDING CONTEXT');
+    expect(prompt).toContain('GROUNDING DATA');
   });
 });
