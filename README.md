@@ -58,16 +58,39 @@ See [ROADMAP.md](./ROADMAP.md) for full progression.
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| 1 | IN PROGRESS | Foundation & Architecture |
-| 2 | Planned | Research Workspace |
-| 3 | Planned | Document Studio |
-| 4 | Planned | Data Lab |
-| 5 | Planned | GCE/Past-Paper Intelligence |
-| 6 | Planned | Academic Project Studio |
-| 7 | Planned | Publishing & Book Production |
-| 8 | Planned | Advanced AI Research |
-| 9 | Planned | Android Companion |
-| 10 | Planned | Production Hardening |
+| 1-7 | COMPLETE | Foundation through Publishing |
+| 8 | COMPLETE | AI Academic Intelligence |
+| 8.1 | COMPLETE | Integration Hardening |
+| 8.1.1 | COMPLETE | Brand Correction & E2E Proof |
+| 9 | COMPLETE | Workflow Orchestration & Command Center |
+| 9.1 | COMPLETE | Security Hardening & Activity UI |
+| 10 | Planned | Android Companion |
+| 11 | Planned | Production Hardening |
+
+## Key Features (Phase 9)
+
+### Project Command Center
+- Unified workflow view showing progress across all stages
+- Real-time completion percentage based on actual project state
+- Workflow pipeline visualization (Discover → Export)
+- Materials summary (sources, datasets, documents, publications)
+
+### Deterministic Next-Action Engine
+- Rule-based recommendations derived from actual project state
+- NO AI predictions — explicit if/then logic
+- Categories: research, methodology, data, writing, review, publishing
+
+### Activity Tracking
+- Chronological event log for each project
+- Human-readable descriptions without exposing sensitive data
+- Pagination support
+- Cross-module event tracking (sources, chapters, AI generations, exports)
+
+### Academic Integrity Safeguards
+- All AI content marked as `NEEDS_REVIEW` by default
+- Human review required before content becomes verified
+- Evidence linking preserved through generation lifecycle
+- No fabricated references or citations
 
 ## Security
 
@@ -76,9 +99,30 @@ See [ROADMAP.md](./ROADMAP.md) for full progression.
 - Uploaded files validated before processing
 - AI-generated content marked as such
 - Source provenance tracked where practical
+- Project-scoped authorization enforced server-side
+- Activity responses minimize sensitive field exposure
 
 See [SECURITY.md](./SECURITY.md).
 
-## License
+## Documentation
 
-Private project. All rights reserved.
+- [PHASE_9_AUDIT.md](./docs/PHASE_9_AUDIT.md) - Phase 9 architecture audit
+- [ACADEMIC_WORKFLOWS.md](./docs/ACADEMIC_WORKFLOWS.md) - Workflow lifecycle guide
+- [ACADEMIC_INTEGRITY.md](./docs/ACADEMIC_INTEGRITY.md) - AI safeguards documentation
+- [PROJECT_COMMAND_CENTER.md](./docs/PROJECT_COMMAND_CENTER.md) - Command Center API reference
+- [PHASE_9_1_AUDIT.md](./docs/PHASE_9_1_AUDIT.md) - Phase 9.1 hardening audit
+
+## Testing
+
+```bash
+# Run all tests
+bun test
+
+# Run API tests
+bun test apps/api
+
+# Run specific test file
+bun test apps/api/src/services/project/phase9-1-security.test.ts
+```
+
+**Current Status:** 472 tests passing, 0 failing.

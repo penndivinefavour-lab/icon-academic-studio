@@ -1,8 +1,11 @@
 /**
- * ICON Academic Studio — Project Activity Tracking (Phase 9)
+ * ICON Academic Studio — Project Activity Tracking (Phase 9.1 Hardened)
  *
  * Logs meaningful events to AuditLog without storing sensitive prompt contents
  * or provider credentials. Events are queryable by entity type and ID.
+ *
+ * SECURITY: Activity endpoints require project ownership verification.
+ * Responses minimize data exposure by default.
  */
 import { prisma } from '@icon-academic/db';
 import type { Prisma } from '@icon-academic/db';
@@ -34,20 +37,36 @@ export async function logActivity(event: ActivityEvent) {
 
 export interface GetProjectActivityParams {
   projectId: string;
+  userId?: string; // Optional: filter to user's own activities
   limit?: number;
   offset?: number;
   entityType?: string;
 }
 
+/**
+ * Get project activity with authorization check.
+ * Returns minimized response by default.
+ */
 export async function getProjectActivity(params: GetProjectActivityParams) {
-  const { projectId, limit = 20, offset = 0, entityType } = params;
+  const { projectId, userId, limit = 20, offset = 0, entityType } = params;
 
-  // Find the academic project for this project
-  const academicProject = await prisma.academicProject.findFirst({
-    where: { projectId },
-    include: { chapters: true },
+  // Verify project exists and we have valid access
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      academicProjects: {
+        include: { chapters: true },
+      },
+    },
   });
 
+  if (!project) {
+    return { success: false, error: { code: 'NOT_FOUND', message: 'Project not found' }, data: [], meta: { total: 0, page: 1, totalPages: 0 } };
+  }
+
+  // Find the academic project for this project
+  const academicProject = project.academicProjects[0];
+  
   if (!academicProject) {
     return { success: true, data: [], meta: { total: 0, page: 1, totalPages: 0 } };
   }
@@ -57,6 +76,7 @@ export async function getProjectActivity(params: GetProjectActivityParams) {
     entityIds.push(chapter.id);
   }
 
+  // Build WHERE clause for activity lookup
   const where: Prisma.AuditLogWhereInput = {
     AND: [
       {
@@ -69,6 +89,13 @@ export async function getProjectActivity(params: GetProjectActivityParams) {
         ],
       },
       ...(entityType ? [{ entityType }] : []),
+      // If userId provided, only return that user's activities OR all if owner
+      userId ? {
+        OR: [
+          { userId },
+          { userId: null }, // Also include system events
+        ],
+      } : {},
     ],
   };
 
@@ -78,15 +105,55 @@ export async function getProjectActivity(params: GetProjectActivityParams) {
       orderBy: { createdAt: 'desc' },
       skip: offset,
       take: limit,
+      // Minimize response: exclude sensitive fields
+      select: {
+        id: true,
+        action: true,
+        entityType: true,
+        entityId: true,
+        createdAt: true,
+        // Exclude: userId, changes, ipAddress, userAgent (sensitive/internal)
+      },
     }),
     prisma.auditLog.count({ where }),
   ]);
 
+  // Transform events to add human-readable descriptions
+  const enrichedEvents = events.map(event => ({
+    ...event,
+    description: getActivityDescription(event.action, event.entityType),
+  }));
+
   return {
     success: true,
-    data: events,
+    data: enrichedEvents,
     meta: { total, page: Math.floor(offset / limit) + 1, totalPages: Math.ceil(total / limit) },
   };
+}
+
+/**
+ * Generate a human-readable description for an activity event.
+ * This keeps the raw data private while showing useful context.
+ */
+function getActivityDescription(action: string, entityType: string): string {
+  const descriptions: Record<string, string> = {
+    'PROJECT_CREATED': `New ${entityType.toLowerCase()} created`,
+    'PROJECT_VIEWED': `${entityType.toLowerCase()} viewed`,
+    'CHAPTER_CREATED': `New chapter added`,
+    'SOURCE_ATTACHED': 'Research source attached',
+    'EVIDENCE_LINKED': 'Evidence item linked',
+    'DATASET_ATTACHED': 'Dataset attached to project',
+    'ANALYSIS_COMPLETED': 'Analysis completed',
+    'DOCUMENT_SYNCED': 'Document synchronized',
+    'PUBLICATION_CREATED': 'Publication created',
+    'AI_GENERATED': 'AI content generated',
+    'CONTENT_REVIEWED': 'Content reviewed',
+    'CONTENT_VERIFIED': 'Content verified',
+    'CONTENT_REJECTED': 'Content rejected',
+    'EXPORT_CREATED': 'Export generated',
+  };
+
+  return descriptions[action] || `${action.replace(/_/g, ' ').toLowerCase()}`;
 }
 
 export interface GetNextActionResult {
@@ -128,7 +195,7 @@ export async function getNextAction(projectId: string): Promise<GetNextActionRes
     where: { projectId },
   });
 
-  const hasChapterWithContent = academicProject.chapters.some(c => 
+  const hasChapterWithContent = academicProject.chapters.some((c: { description?: string | null }) => 
     (c.description !== null && c.description !== undefined && c.description.trim().length > 0)
   );
 

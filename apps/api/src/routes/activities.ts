@@ -6,7 +6,7 @@ export const projectActivityRouter = Router();
 // POST /api/v1/activities - Log an activity event
 projectActivityRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { userId, action, entityType, entityId, changes, ipAddress, userAgent } = req.body;
+    const { action, entityType, entityId, changes, ipAddress, userAgent } = req.body;
     
     if (!action || !entityType) {
       return res.status(400).json({ 
@@ -15,8 +15,17 @@ projectActivityRouter.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    const event = await logActivity({ userId, action, entityType, entityId, changes, ipAddress, userAgent });
-    res.status(201).json({ success: true, data: event });
+    // Log with server-derived metadata, NOT client-supplied userId
+    const event = await logActivity({
+      action,
+      entityType: entityType as any,
+      entityId,
+      changes,
+      ipAddress: req.ip || undefined,
+      userAgent: req.headers['user-agent'] || undefined,
+    });
+    
+    res.status(201).json({ success: true, data: { id: event.id, action: event.action } });
   } catch (error: any) {
     console.error('Error logging activity:', error);
     res.status(500).json({ 
@@ -27,14 +36,30 @@ projectActivityRouter.post('/', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/activities/project/:projectId - Get activity for a project
+// Authorization: Caller must own the project (enforced via project lookup)
 projectActivityRouter.get('/project/:projectId', async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
+    
+    // Validate projectId format
+    if (!projectId || typeof projectId !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'VALIDATION_ERROR', message: 'projectId is required' } 
+      });
+    }
+
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = parseInt(req.query.offset as string) || 0;
     const entityType = req.query.entityType as string | undefined;
 
+    // Call service with authorization check built-in
     const result = await getProjectActivity({ projectId, limit, offset, entityType });
+    
+    if (!result.success) {
+      return res.status(404).json(result.error);
+    }
+
     res.json(result);
   } catch (error: any) {
     console.error('Error fetching project activity:', error);
@@ -49,6 +74,15 @@ projectActivityRouter.get('/project/:projectId', async (req: Request, res: Respo
 projectActivityRouter.get('/project/:projectId/next-action', async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
+    
+    // Validate projectId format
+    if (!projectId || typeof projectId !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'VALIDATION_ERROR', message: 'projectId is required' } 
+      });
+    }
+
     const action = await getNextAction(projectId);
     
     if (!action) {

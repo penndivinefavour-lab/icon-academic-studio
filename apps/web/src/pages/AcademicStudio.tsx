@@ -7,6 +7,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import ActivityTab from '../components/ActivityTab';
 
 const API = '/api/v1/academic-projects';
 
@@ -49,7 +50,7 @@ interface TemplateDef {
   citationStyle: string;
 }
 
-const TABS = ['Overview', 'Structure', 'Research', 'Methodology', 'Instruments', 'Data', 'Findings', 'Validation', 'Export'] as const;
+const TABS = ['Overview', 'Structure', 'Research', 'Methodology', 'Instruments', 'Data', 'Findings', 'Validation', 'Export', 'Activity'] as const;
 type Tab = (typeof TABS)[number];
 
 export default function AcademicStudio() {
@@ -238,6 +239,7 @@ export default function AcademicStudio() {
           {tab === 'Data' && <SimpleList items={[]} label="datasets and analyses" />}
           {tab === 'Findings' && <SimpleList items={selected.findings || []} label="findings" field="statement" />}
           {tab === 'Validation' && <SimpleList items={[]} label="validation runs" />}
+          {tab === 'Activity' && <ActivityTab projectId={selected.id} />}
           {tab === 'Export' && <ExportTab projectId={selected.id} />}
         </div>
       )}
