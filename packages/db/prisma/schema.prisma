@@ -286,11 +286,17 @@ model ResearchNote {
   tags            String   @default("[]") // JSON array string
   sources         String   @default("[]") // JSON array of source IDs
   linkedDocuments String   @default("[]") // JSON array of document IDs
+  // Phase 10: optional idempotency key for mobile capture sync.
+  // Lets the Android outbox retry POSTs without creating duplicates.
+  // Uniqueness is scoped per project so the same device key can be reused
+  // across projects.
+  clientId        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  @@unique([projectId, clientId])
   @@index([projectId])
   @@map("research_notes")
 }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ICON Academic Studio brand palette (mirrors apps/web/tailwind.config.js) -->
+    <color name="icon_navy">#FF1A2744</color>
+    <color name="icon_purple">#FF6B21A8</color>
+    <color name="icon_gold">#FFF5C518</color>
+    <color name="icon_charcoal">#FF1E1E2E</color>
+    <color name="icon_white">#FFFFFFFF</color>
+    <color name="icon_background">#FFFAFAFA</color>
+    <color name="icon_surface">#FFFFFFFF</color>
+    <color name="icon_on_navy">#FFFFFFFF</color>
+    <color name="icon_text_primary">#FF1A2744</color>
+    <color name="icon_text_secondary">#FF616161</color>
+    <color name="icon_error">#FFB00020</color>
+</resources>

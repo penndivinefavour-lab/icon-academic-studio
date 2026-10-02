@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      ICON Academic Companion connects to a user-configured Studio API URL,
+      typically a workstation on a trusted local network over plain HTTP.
+
+      Explicit cleartext is permitted ONLY for private/local address ranges so
+      users can reach a dev workstation. Public hosts must still use HTTPS.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.0.0</domain>
+        <domain includeSubdomains="false">172.16.0.0</domain>
+        <domain includeSubdomains="false">192.168.0.0</domain>
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+</network-security-config>

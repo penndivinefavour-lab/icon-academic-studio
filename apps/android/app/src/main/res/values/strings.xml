@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ICON Academic</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_projects">Projects</string>
+    <string name="nav_capture">Capture</string>
+    <string name="nav_activity">Activity</string>
+    <string name="nav_settings">Settings</string>
+
+    <string name="connection_connected">Connected to Studio API</string>
+    <string name="connection_checking">Checking connection…</string>
+    <string name="connection_disconnected">Disconnected</string>
+    <string name="connection_offline">Offline — cached data available</string>
+
+    <string name="next_action_cached_label">Cached — last synced %1$s ago</string>
+    <string name="warning_cleartext">Connected over plain HTTP. This is only safe on a trusted local network.</string>
+
+    <string name="empty_projects">No projects yet. Open ICON Academic Studio on your workstation to create one.</string>
+    <string name="empty_activity">No activity recorded for this project yet.</string>
+    <string name="empty_captures">Nothing captured yet. Use the button below to capture an idea or note.</string>
+    <string name="empty_next_action">No next action available while offline.</string>
+
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="error_unreachable">Could not reach the Studio API. Showing cached data.</string>
+
+    <string name="sync_state_synced">Synced</string>
+    <string name="sync_state_pending">Pending sync</string>
+    <string name="sync_state_failed">Sync failed — tap to retry</string>
+
+    <string name="capture_hint">Capture a research idea, note, question, or task…</string>
+    <string name="capture_project_hint">Associate with project (optional)</string>
+    <string name="capture_save">Save capture</string>
+</resources>

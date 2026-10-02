@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="screen_padding">16dp</dimen>
+    <dimen name="card_padding">16dp</dimen>
+    <dimen name="card_corner">12dp</dimen>
+    <dimen name="card_elevation">2dp</dimen>
+    <dimen name="spacing_xs">4dp</dimen>
+    <dimen name="spacing_sm">8dp</dimen>
+    <dimen name="spacing_md">12dp</dimen>
+    <dimen name="spacing_lg">16dp</dimen>
+    <dimen name="spacing_xl">24dp</dimen>
+
+    <dimen name="text_xl">24sp</dimen>
+    <dimen name="text_lg">18sp</dimen>
+    <dimen name="text_md">15sp</dimen>
+    <dimen name="text_sm">13sp</dimen>
+    <dimen name="text_xs">11sp</dimen>
+
+    <!-- Minimum accessible touch target -->
+    <dimen name="touch_target">48dp</dimen>
+</resources>

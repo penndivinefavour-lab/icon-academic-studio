@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '@icon-academic/db';
+import { createNoteIdempotent } from '../services/research/notes.js';
 
 export const researchRouter = Router();
 
@@ -92,9 +93,10 @@ researchRouter.get('/notes', async (req: Request, res: Response) => {
 });
 
 // POST /api/v1/research/notes - Create research note
+// Phase 10: supports optional `clientId` for idempotent mobile capture sync.
 researchRouter.post('/notes', async (req: Request, res: Response) => {
   try {
-    const { projectId, title, content, tags, sources, linkedDocuments } = req.body;
+    const { projectId, title, content, tags, sources, linkedDocuments, clientId } = req.body;
 
     if (!projectId || !title) {
       return res.status(400).json({
@@ -103,18 +105,17 @@ researchRouter.post('/notes', async (req: Request, res: Response) => {
       });
     }
 
-    const note = await prisma.researchNote.create({
-      data: {
-        projectId,
-        title,
-        content: content || '',
-        tags: tags ? JSON.stringify(tags) : '[]',
-        sources: sources ? JSON.stringify(sources) : '[]',
-        linkedDocuments: linkedDocuments ? JSON.stringify(linkedDocuments) : '[]',
-      },
+    const { note, created } = await createNoteIdempotent({
+      projectId,
+      title,
+      content,
+      tags,
+      sources,
+      linkedDocuments,
+      clientId,
     });
 
-    res.status(201).json({ success: true, data: note });
+    res.status(created ? 201 : 200).json({ success: true, data: note });
   } catch (error) {
     console.error('Error creating research note:', error);
     res.status(500).json({
