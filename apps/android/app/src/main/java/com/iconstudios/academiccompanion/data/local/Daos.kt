@@ -78,18 +78,18 @@ interface CaptureDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(capture: CaptureEntity)
 
-    @Query("UPDATE captures SET sync_state = :state, server_id = :serverId, last_attempt_at = :attemptAt WHERE client_id = :clientId")
-    suspend fun markSynced(clientId: String, serverId: String, state: String = SyncState.SYNCED, attemptAt: Long = System.currentTimeMillis())
+    @Query("UPDATE captures SET sync_state = :state, server_id = :serverId, last_attempt_at = :attemptAt WHERE clientId = :clientId")
+        suspend fun markSynced(clientId: String, serverId: String, state: String = SyncState.SYNCED, attemptAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captures SET sync_state = :state, last_attempt_at = :attemptAt, attempt_count = attempt_count + 1 WHERE client_id = :clientId")
-    suspend fun markFailed(clientId: String, state: String = SyncState.FAILED, attemptAt: Long = System.currentTimeMillis())
+        @Query("UPDATE captures SET sync_state = :state, last_attempt_at = :attemptAt, attempt_count = attempt_count + 1 WHERE clientId = :clientId")
+        suspend fun markFailed(clientId: String, state: String = SyncState.FAILED, attemptAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE captures SET sync_state = :state WHERE client_id = :clientId")
-    suspend fun setState(clientId: String, state: String)
+        @Query("UPDATE captures SET sync_state = :state WHERE clientId = :clientId")
+        suspend fun setState(clientId: String, state: String)
 
-    @Query("SELECT COUNT(*) FROM captures WHERE sync_state = :state")
-    fun observeStateCount(state: String): Flow<Int>
+        @Query("SELECT COUNT(*) FROM captures WHERE sync_state = :state")
+        fun observeStateCount(state: String): Flow<Int>
 
-    @Query("DELETE FROM captures WHERE client_id = :clientId")
-    suspend fun delete(clientId: String)
+        @Query("DELETE FROM captures WHERE clientId = :clientId")
+        suspend fun delete(clientId: String)
 }

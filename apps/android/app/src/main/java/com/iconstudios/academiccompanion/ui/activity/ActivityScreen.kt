@@ -1,5 +1,6 @@
 package com.iconstudios.academiccompanion.ui.activity
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -25,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -129,10 +132,14 @@ fun relativeTime(epochMillis: Long): String {
     return when {
         minutes < 1 -> "just now"
         minutes < 60 -> "${minutes}m ago"
-        val hours = minutes / 60
-        hours < 24 -> "${hours}h ago"
-        val days = hours / 24
-        days < 7 -> "${days}d ago"
-        else -> java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()).format(java.util.Date(epochMillis))
+        else -> {
+            val hours = minutes / 60
+            if (hours < 24) "${hours}h ago"
+            else {
+                val days = hours / 24
+                if (days < 7) "${days}d ago"
+                else java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()).format(java.util.Date(epochMillis))
+            }
+        }
     }
 }

@@ -252,10 +252,14 @@ fun relativeTime(epochMillis: Long): String {
     return when {
         minutes < 1 -> "just now"
         minutes < 60 -> "${minutes}m"
-        val hours = minutes / 60
-        hours < 24 -> "${hours}h"
-        val days = hours / 24
-        days < 7 -> "${days}d"
-        else -> java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()).format(java.util.Date(epochMillis))
+        else -> {
+            val hours = minutes / 60
+            if (hours < 24) "${hours}h"
+            else {
+                val days = hours / 24
+                if (days < 7) "${days}d"
+                else java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()).format(java.util.Date(epochMillis))
+            }
+        }
     }
 }

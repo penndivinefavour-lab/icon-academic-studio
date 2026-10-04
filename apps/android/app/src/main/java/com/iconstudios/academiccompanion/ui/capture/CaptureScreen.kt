@@ -15,9 +15,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Chip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,7 +67,6 @@ fun CaptureScreen(viewModel: CaptureViewModel) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = viewModel::save,
-                enabled = state.canSave && !state.saving,
                 containerColor = IconGold,
                 contentColor = IconNavy,
             ) {
@@ -194,7 +194,9 @@ private fun SyncBadge(syncState: String) {
         SyncState.PENDING -> "Pending sync" to IconGold
         else -> "Sync failed" to MaterialTheme.colorScheme.error
     }
-    Chip(onClick = {}) {
-        Text(text, color = color)
-    }
+    AssistChip(
+        onClick = {},
+        modifier = Modifier.padding(horizontal = 8.dp),
+        label = { Text(text, color = color) },
+    )
 }

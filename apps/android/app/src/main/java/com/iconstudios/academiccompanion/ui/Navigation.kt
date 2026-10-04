@@ -1,5 +1,6 @@
 package com.iconstudios.academiccompanion.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -21,6 +26,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -33,6 +39,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -46,9 +53,9 @@ import com.iconstudios.academiccompanion.ui.capture.CaptureScreen
 import com.iconstudios.academiccompanion.ui.capture.CaptureViewModel
 import com.iconstudios.academiccompanion.ui.commandcenter.CommandCenterScreen
 import com.iconstudios.academiccompanion.ui.commandcenter.CommandCenterViewModel
-import com.iconstudios.academiccompanion.ui.home.HomeScreen
-import com.iconstudios.academiccompanion.ui.home.HomeViewModel
-import com.iconstudios.academiccompanion.ui.projects.ProjectsScreen
+import com.iconstudios.academiccompanion.ui.HomeScreen
+import com.iconstudios.academiccompanion.ui.HomeViewModel
+import com.iconstudios.academiccompanion.ui.ProjectsScreen
 import com.iconstudios.academiccompanion.ui.projects.ProjectsViewModel
 import com.iconstudios.academiccompanion.ui.settings.SettingsScreen
 import com.iconstudios.academiccompanion.ui.settings.SettingsViewModel
@@ -64,10 +71,11 @@ object Routes {
     const val SETTINGS = "settings"
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NavigationShell(container: AppContainer) {
     val navController = rememberNavController()
-    val currentRoute by navController.currentBackStackEntryAsState()?.destination?.route
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
     Scaffold(
         topBar = { Header(currentRoute ?: Routes.HOME) },
@@ -94,6 +102,7 @@ fun NavigationShell(container: AppContainer) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Header(route: String) {
     TopAppBar(
@@ -124,13 +133,14 @@ private val SCREENS = listOf(
     NavBarRoute("Settings", Icons.Default.Settings, Routes.SETTINGS),
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BottomNavBar(navController: NavHostController, currentRoute: String) {
     BottomAppBar(containerColor = MaterialTheme.colorScheme.surface) {
         Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
             SCREENS.forEach { s ->
                 val selected = currentRoute == s.screenRoute || (s.screenRoute == Routes.HOME && currentRoute.isNullOrBlank())
-                androidx.compose.material3.NavigationBarItem(
+                NavigationBarItem(
                     selected = selected,
                     icon = { Icon(s.icon, contentDescription = s.label) },
                     label = { Text(s.label, maxLines = 1) },

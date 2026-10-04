@@ -1,6 +1,7 @@
 package com.iconstudios.academiccompanion
 
 import android.app.Application
+import android.content.Context
 import com.iconstudios.academiccompanion.data.local.CompanionDatabase
 import com.iconstudios.academiccompanion.data.local.ConnectionPrefs
 import com.iconstudios.academiccompanion.data.remote.ApiClient
@@ -19,6 +20,8 @@ import kotlinx.coroutines.flow.first
  */
 class AppContainer(private val app: Application) {
 
+    val appContext: Context get() = app.applicationContext
+
     val database: CompanionDatabase by lazy { CompanionDatabase.get(app) }
     val connectionPrefs: ConnectionPrefs by lazy { ConnectionPrefs(app) }
 
@@ -30,13 +33,13 @@ class AppContainer(private val app: Application) {
      * Callers that need an explicit URL (e.g. the sync worker validating a
      * snapshot) should use [apiFor].
      */
-    @Synchronized
     suspend fun api(): StudioApi {
         val current = connectionPrefs.baseUrl.first()
-        cachedApi?.takeIf { cachedBaseUrl == current }?.let { return it }
-        return ApiClient.create(current).also {
-            cachedApi = it
-            cachedBaseUrl = current
+        return synchronized(this) {
+            cachedApi?.takeIf { cachedBaseUrl == current } ?: ApiClient.create(current).also {
+                cachedApi = it
+                cachedBaseUrl = current
+            }
         }
     }
 

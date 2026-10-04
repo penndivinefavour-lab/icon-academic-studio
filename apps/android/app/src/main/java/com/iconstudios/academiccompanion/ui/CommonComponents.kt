@@ -26,9 +26,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -40,12 +42,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.iconstudios.academiccompanion.ui.home.HomeUiState
-import com.iconstudios.academiccompanion.ui.home.HomeViewModel
+import com.iconstudios.academiccompanion.ui.HomeUiState
+import com.iconstudios.academiccompanion.ui.HomeViewModel
 import com.iconstudios.academiccompanion.ui.projects.ProjectsViewModel
 import com.iconstudios.academiccompanion.ui.theme.IconGold
 import com.iconstudios.academiccompanion.ui.theme.IconNavy
 import com.iconstudios.academiccompanion.data.local.ActivityEntity
+import com.iconstudios.academiccompanion.data.local.ProjectEntity
 import com.iconstudios.academiccompanion.data.repository.ConnectionState
 import com.iconstudios.academiccompanion.ui.activity.relativeTime
 import com.iconstudios.academiccompanion.ui.theme.IconPurple
@@ -53,118 +56,6 @@ import com.iconstudios.academiccompanion.ui.theme.IconSuccess
 import com.iconstudios.academiccompanion.ui.commandcenter.CommandCenterUiState
 import com.iconstudios.academiccompanion.ui.commandcenter.CommandCenterViewModel
 import com.iconstudios.academiccompanion.ui.commandcenter.WorkflowStage
-import com.iconstudios.academiccompanion.ui.capture.CaptureViewModel
-
-sealed class Screen(val route: String) {
-    data object Home : Screen("home")
-    data object Projects : Screen("projects")
-    data object Capture : Screen("capture")
-    data class Activity(val projectId: String) : Screen("activity/${'$'}{projectId}")
-    data class CommandCenter(val projectId: String) : Screen("command-center/${'$'}{projectId}")
-    data object Settings : Screen("settings")
-}
-
-@Composable
-fun NavigationHost(container: AppContainer) {
-    val navController = androidx.navigation.compose.rememberNavController()
-    val backStack by navController.currentBackStackEntryAsState()
-    val currentRoute = backStack?.destination?.route
-
-    Scaffold(
-        topBar = { Header(currentRoute ?: Screen.Home.route) },
-        bottomBar = { BottomNavBar(navController, currentRoute ?: Screen.Home.route) { route ->
-            navController.navigate(route) {
-                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                launchSingleTop = true
-                restoreState = true
-            }
-        }},
-    ) { padding ->
-        androidx.compose.foundation.layout.Box(
-            modifier = Modifier.fillMaxSize().padding(padding),
-        ) {
-            androidx.navigation.compose.NavHost(navController, startDestination = Screen.Home.route) {
-                composable(Screen.Home.route) {
-                    val vm = androidx.lifecycle.viewmodel.compose.viewModel { HomeViewModel(container.studioRepository, container.connectionRepository) }
-                    HomeScreen(viewModel = vm, onProjectClick = { id -> navController.navigate(Screen.CommandCenter(id).route) })
-                }
-                composable(Screen.Projects.route) {
-                    val vm = androidx.lifecycle.viewmodel.compose.viewModel { ProjectsViewModel(container.studioRepository) }
-                    ProjectsScreen(viewModel = vm, onProjectClick = { id -> navController.navigate(Screen.CommandCenter(id).route) })
-                }
-                composable(Screen.Capture.route) {
-                    val vm = androidx.lifecycle.viewmodel.compose.viewModel { CaptureViewModel(container.captureRepository, container.studioRepository, LocalContext.current) }
-                    CaptureScreen(viewModel = vm)
-                }
-                composable(Screen.Activity.route) { backStackEntry ->
-                    val projectId = backStackEntry.arguments?.getString("projectId") ?: return@composable
-                    val vm = androidx.lifecycle.viewmodel.compose.viewModel { ActivityViewModel(container.studioRepository) }
-                    ActivityScreen(projectId = projectId, viewModel = vm)
-                }
-                composable(Screen.CommandCenter.route) { backStackEntry ->
-                    val projectId = backStackEntry.arguments?.getString("projectId") ?: return@composable
-                    val vm = androidx.lifecycle.viewmodel.compose.viewModel { CommandCenterViewModel(container.studioRepository) }
-                    CommandCenterScreen(projectId = projectId, viewModel = vm, onShowActivity = { /* already navigated */ })
-                }
-                composable(Screen.Settings.route) {
-                    val vm = androidx.lifecycle.viewmodel.compose.viewModel { SettingsViewModel(container.connectionPrefs, container.connectionRepository) }
-                    SettingsScreen(viewModel = vm)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun Header(route: String) {
-    TopAppBar(
-        title = {
-            Text(
-                text = when {
-                    route.startsWith("command-center") -> "Project"
-                    route == Screen.Projects.route -> "Projects"
-                    route.startsWith("activity") -> "Activity"
-                    route == Screen.Capture.route -> "Capture"
-                    route == Screen.Settings.route -> "Settings"
-                    else -> "ICON Academic"
-                },
-                fontWeight = FontWeight.Bold,
-                color = IconNavy,
-            )
-        },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-    )
-}
-
-private data class NavBarRoute(
-    val label: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    val screenRoute: String,
-)
-private val SCREENS = listOf(
-    NavBarRoute("Home", Icons.Default.Home, Screen.Home.route),
-    NavBarRoute("Projects", Icons.Default.List, Screen.Projects.route),
-    NavBarRoute("Capture", Icons.Default.EditNote, Screen.Capture.route),
-    NavBarRoute("Activity", Icons.Default.History, Screen.Activity("").route),
-    NavBarRoute("Settings", Icons.Default.Settings, Screen.Settings.route),
-)
-
-@Composable
-private fun BottomNavBar(navController: NavHostController, currentRoute: String, onNavSelect: (String) -> Unit) {
-    androidx.compose.material3.BottomAppBar(containerColor = MaterialTheme.colorScheme.surface) {
-        Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-            SCREENS.forEach { s ->
-                val selected = currentRoute == s.screenRoute || (s.screenRoute == Screen.Home.route && currentRoute.isBlank())
-                androidx.compose.material3.NavigationBarItem(
-                    selected = selected,
-                    icon = { Icon(s.icon, contentDescription = s.label) },
-                    label = { Text(s.label, maxLines = 1) },
-                    onClick = { onNavSelect(s.screenRoute) },
-                )
-            }
-        }
-    }
-}
 
 @Composable
 fun ConnectionBanner(

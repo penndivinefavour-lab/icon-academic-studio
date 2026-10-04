@@ -1,223 +1,327 @@
-# Phase 10 Audit — Android Companion
+# Phase 10.1 — Android Companion Verification Record
 
-## Executive Summary
-
-Phase 10 adds a mobile companion to ICON Academic Studio. This audit was completed **before any implementation**, per the phase brief, and determines what the backend can safely support, which APIs must never be exposed, and what belongs in Phase 10 versus later phases.
-
----
-
-## 1. Current Backend Capabilities
-
-### API Surface (all under `/api/v1`)
-
-| Module | Base route | Read endpoints relevant to mobile |
-|--------|-----------|----------------------------------|
-| Health | `/api/health` | `GET /api/health` |
-| Projects | `/projects` | `GET /` (list+counts), `GET /:id` (detail+counts) |
-| Academic Projects | `/academic-projects` | `GET /templates`, `GET /?projectId=`, `GET /:id`, `GET /:id/dashboard`, `GET /:id/search` |
-| Activity | `/activities` | `GET /project/:projectId`, `GET /project/:projectId/next-action` |
-| Research | `/research` | `GET /notes?projectId=`, `GET /questions?projectId=`, `GET /search` |
-| Documents | `/documents` | Document metadata + export endpoints |
-| Publishing | `/publishing` | Publications list/detail |
-| Data Lab | `/data-lab` | Dataset profiling/analysis (heavy) |
-| GCE | `/gce` | Past papers, syllabi, question bank |
-| AI | `/ai` | Generation, review workflow |
-
-### Services already implemented
-
-- `getProjectActivity()` — project-scoped activity with pagination, data minimization, entity-type whitelist, pagination bounds (limit 1–100, offset ≥ 0) — hardened in Phase 9.1.1
-- `getNextAction()` — **deterministic** rule-based next-action engine (no AI). The API is authoritative; mobile must never recompute this.
-- `svc.getProjectDashboard()` — real completion %, word count, counts, unresolved review items
-- `logActivity()` — writes `AuditLog` with server-derived metadata only (no client-supplied `userId`)
-
-### Database
-
-- 89 Prisma models, PostgreSQL (dev uses SQLite `dev.db` via `DATABASE_URL="file:./dev.db"`)
-- `AuditLog`: `id, userId?, action, entityType, entityId?, changes?, ipAddress?, userAgent?, createdAt` — sensitive fields (`userId`, `changes`, `ipAddress`, `userAgent`) are excluded from activity responses by the service `select`
-
-### Shared types
-
-`packages/shared/src/index.ts` exports canonical TypeScript domain types (`Project`, `ProjectType`, `ProjectStatus`, `Source`, `CitationStyle`, …) consumed by both `apps/api` and `apps/web`. The Android app reuses these concepts by mirroring them in Kotlin.
+**Date:** 2026-10-03
+**Scope:** ICON brand alignment, Android build verification, API/offline verification, targeted fixes.
 
 ---
 
-## 2. APIs That Can Safely Support Mobile
+## 1. Repository State (verified)
 
-Safe = read-only, project-scoped, already returns minimized data, and carries no credentials.
-
-| Endpoint | Why safe |
-|----------|----------|
-| `GET /api/health` | No data, ideal connection probe |
-| `GET /api/v1/projects` (`?page&limit&type&status`) | List with pagination and counts |
-| `GET /api/v1/projects/:id` | Project detail with material counts |
-| `GET /api/v1/academic-projects/:id/dashboard` | Real progress/counts for Command Center |
-| `GET /api/v1/activities/project/:projectId` | Hardened in 9.1.1: minimized response, bounded pagination, entity whitelist, cross-project isolation |
-| `GET /api/v1/activities/project/:projectId/next-action` | Deterministic, no AI |
-| `GET /api/v1/research/notes?projectId=` | Project-scoped notes (capture target) |
-| `GET /api/v1/academic-projects/:id` | Academic project detail |
-
-Write endpoints usable for capture, with validation:
-- `POST /api/v1/research/notes` — requires `projectId` + `title`; body validated in route
-- `POST /api/v1/activities` — logs events with server-derived metadata only
+| Item | Value |
+|---|---|
+| Repo | `penndivinefavour-lab/icon-academic-studio` |
+| Branch | `master` |
+| Starting HEAD | `add4846` (== `origin/master`) |
+| Phase 10.1 checkpoint | `ab08ca0` (Phase 9.1.1) |
+| Working tree | clean at start (one untracked doc) |
 
 ---
 
-## 3. APIs That Must NOT Be Exposed to Arbitrary Networks
+## 2. Branding Audit
 
-Phase 9.1.1 established there is **no authentication and no authorization**. `projectId` is not a credential. Therefore the following must never be reachable from an untrusted network, and Phase 10 does not change that:
+**Previous incorrect color:** `#0D9488` (teal) — reported by the prior audit as the Android primary.
 
-- `POST /api/v1/ai/generate` and all AI generation paths — provider credentials live server-side; exposing the route exposes paid capability to anyone on the network
-- `POST /api/v1/academic-projects/:id/ai-draft` — same reason
-- All write/export endpoints (`PATCH /projects/:id`, `DELETE /projects/:id`, `/sync-document`, `/versions/*/restore`, `/export/:format`) — destructive or cost-incurring
-- `GET /api/v1/ai/providers` and provider config routes — risk leaking provider configuration metadata
-- Data Lab ingestion and GCE ingestion endpoints — heavy, unbounded work
+**Actual state found in source:** A grep across the entire `apps/android/` tree for
+`0D9488` and `teal` returned **zero matches**. The teal branding had already been
+replaced with the authoritative ICON palette in Phase 10.
 
-**Rule: Phase 10 connects only over a user-configured trusted local network. No public exposure, no cloud hosting, no port forwarding, no LAN auto-discovery that auto-connects.**
+**Authoritative palette in use (centralized in `ui/theme/Color.kt` + `res/values/colors.xml`):**
 
----
+| Token | Hex | Role |
+|---|---|---|
+| `IconNavy` | `#1A2744` | Primary surface / header |
+| `IconPurple` | `#6B21A8` | Primary brand / accents |
+| `IconGold` | `#F5C518` | Action / highlight (FAB, selected nav) |
+| `IconWhite` | `#FFFFFF` | On-primary text |
+| `IconCharcoal` | `#1E1E2E` | Dark-mode background |
+| `IconSuccess` / `IconError` | green/red | Status only |
 
-## 4. Existing Android / Mobile Assets
+- All screens reference theme tokens, not raw hex.
+- Only one raw hex in the whole UI layer: `Color(0xFF6B21A8)` (purple) in
+  `ActivityScreen.kt` — semantically identical to `IconPurple`, kept as-is to
+  avoid layout churn.
+- Dark-mode behavior is coherent (Material3 dynamic color disabled; explicit
+  dark color scheme in `Theme.kt`).
 
-**None.** A repository-wide search for `*.kt`, `*.gradle`, `*.gradle.kts`, `AndroidManifest.xml`, and `*.apk` returned zero results. `apps/` contains only `api/` and `web/`. No React Native, Flutter, Capacitor, or Cordova tooling exists either.
-
-Phase 10 therefore builds the Android project from scratch under a new `apps/android/` workspace.
-
-### Build environment verified
-
-| Tool | Status |
-|------|--------|
-| JDK | Temurin 21.0.12.1, `JAVA_HOME` set |
-| Android SDK | `C:\androidsdk`, `ANDROID_HOME`/`ANDROID_SDK_ROOT` set |
-| Platforms | `android-34`, `android-35` |
-| Build-tools | `34.0.0`, `35.0.0` |
-| cmdline-tools | `12.0` (`sdkmanager.bat`, `lint.bat`, `avdmanager.bat`) |
-| platform-tools | `adb 34.0.5` |
-| Licenses | Accepted (`android-sdk-license` etc.) |
-| Gradle / Kotlin standalone | Not installed globally — will use Gradle Wrapper |
-
-**Decision: target `compileSdk = 34`, `minSdk = 26`, and use the Gradle wrapper so the build is reproducible without a system Gradle install.**
+**All Android UI surfaces audited:** theme, Material color scheme, launcher icon
+(adaptive, navy/purple), splash, bottom navigation + selected/unselected states,
+buttons, cards, headers, progress indicators, chips, connection/sync status,
+empty/error states, settings, quick capture, command center, activity, projects,
+home. **No orange, no teal, no template colors.**
 
 ---
 
-## 5. Existing Shared TypeScript / Domain Models
+## 3. Typography
 
-Canonical types in `packages/shared/src/index.ts`:
+`apps/android` does **not** bundle Poppins. Per the phase rules, no font files
+were invented or downloaded. The existing reliable Android font stack
+(Material3 default type scale) is preserved. No broken font configuration
+introduced.
 
-```ts
-ProjectType        // 19 literal values (gce-study-guide … custom)
-ProjectStatus      // 'draft' | 'in-progress' | 'review' | 'completed' | 'archived'
-Project            // id, name, description?, type, settings, status, timestamps
-CitationStyle      // apa | mla | chicago | harvard | ieee | gbt7714 | custom
-Source / SourceMetadata / SourceChunk
-```
+---
 
-The web app's brand tokens (`apps/web/tailwind.config.js`) define the ICON palette reused on Android:
+## 4. Build Environment
+
+| Tool | Version / Path |
+|---|---|
+| JDK | Eclipse Adoptium **21.0.12.1+1** — `/c/Program Files/Eclipse Adoptium/jdk-21.0.12.1+1` |
+| Android SDK | `/c/Users/USER/Android/Sdk` |
+| Platforms | `android-34` |
+| Build-tools | `34.0.0` |
+| System image | `android-34/google_apis/x86_64` (emulator available) |
+| Gradle | 8.9 (project wrapper) |
+| `adb` | present |
+
+**Invocation note:** the `gradlew` shell script had CRLF line endings and hung.
+Normalized with `sed -i 's/\r$//' gradlew`, then invoked the wrapper jar
+directly, which is stable:
 
 ```
-brand.navy     #1A2744   structural elements, headers, navigation
-brand.purple   #6B21A8   primary actions, accents
-brand.gold     #F5C518   highlights, warnings
-brand.charcoal #1E1E2E   dark backgrounds
-brand.white    #FFFFFF
-primary.600    #6B21A8   ICON Rich Purple (primary scale root)
-fontFamily     Poppins / Inter / system-ui
+cd apps/android
+JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-21.0.12.1+1" \
+ANDROID_HOME="/c/Users/USER/Android/Sdk" \
+ANDROID_SDK_ROOT="/c/Users/USER/Android/Sdk" \
+java -cp "gradle/wrapper/gradle-wrapper.jar" org.gradle.wrapper.GradleWrapperMain assembleDebug --no-daemon
 ```
 
+`local.properties` was created with `sdk.dir` pointing at the local SDK. It is
+git-ignored and was **not** committed.
+
 ---
 
-## 6. Recommended Android Architecture
+## 5. Build Verification
+
+**Command:** `assembleDebug --no-daemon`
+**Result:** **BUILD SUCCESSFUL**
+
+| Item | Value |
+|---|---|
+| APK path | `apps/android/app/build/outputs/apk/debug/app-debug.apk` |
+| APK size | 18,547,489 bytes (~17.7 MB) |
+| Variant | debug |
+| Application ID | `com.iconstudios.academiccompanion.debug` |
+| versionName | `0.1.0-debug` |
+| versionCode | 1 |
+| minSdk | 26 |
+| targetSdk | 34 |
+
+Artifact copy (outside generated dirs, not committed):
+`artifacts/icon-academic-companion-0.1.0-debug.apk`
+
+**Unit tests:** `testDebugUnitTest` — **BUILD SUCCESSFUL**, no failing tests.
+(The project ships no test sources; the task executed and passed.)
+
+### Compile errors fixed to reach a green build
+
+All were genuine project-level source defects (not environment):
+
+1. **`CommonComponents.kt`** — duplicate navigation block (`NavigationHost`,
+   `Screen`, `Header`, `NavBarRoute`, `SCREENS`) redeclared symbols already
+   defined in `Navigation.kt`, and an orphaned `BottomNavBar` referencing removed
+   symbols. Removed the duplicates; `Navigation.kt` is now the single source.
+2. **`Daos.kt`** — `markSynced` `@Query` referenced wrong column names and a
+   mismatched signature. Corrected to
+   `UPDATE captures SET sync_state = :state, server_id = :serverId, last_attempt_at = :attemptAt WHERE clientId = :clientId`.
+3. **`CaptureScreen.kt`** — used the Material3 experimental `Chip` with an
+   invalid `enabled` param, and `FloatingActionButton` had an invalid `enabled`
+   param. Switched to the stable `AssistChip` (with `label` slot) and removed the
+   invalid FAB param. Added the missing `setValue` import.
+4. **`ActivityScreen.kt` / `CommandCenterScreen.kt`** — duplicated
+   `relativeTime()` helpers; corrected both. Added missing
+   `clip` / `width` / `Box` / `background` imports.
+5. **`Navigation.kt`** — `currentBackStackEntryAsState()?.destination?.route`
+   is invalid (the state must be read as `.value`). Fixed, plus missing imports
+   (`NavigationBarItem`, `background`, `Arrangement`, `Column`, `Row`, `Spacer`,
+   `padding`, `size`, `height`, `fillMaxWidth`) and wrong package paths
+   (`ui.home.*` / `ui.projects.*` → `ui.*`). Added `@OptIn(ExperimentalMaterial3Api::class)`
+   to `NavigationShell`, `Header`, and `BottomNavBar` (TopAppBar is experimental).
+6. **`HomeScreen.kt`** — missing `fillMaxWidth` import and the same wrong
+   `ui.home.*` package paths.
+7. **`AppContainer.kt`** — `synchronized(this) { ... }` wrapping a `suspend`
+   call is illegal. Restructured so the suspend read happens outside the
+   monitor and only the cache write is synchronized. Added an `appContext`
+   property (required by `CaptureViewModel`) and its `Context` import.
+8. **`libs.versions.toml`** — `kotlinxSerialization = "1.7.3"` is incompatible
+   with the project's Kotlin 1.9.25 (requires Kotlin 2.0+). Downgraded to
+   `1.6.3`, which is the last release compatible with Kotlin 1.9.x.
+
+---
+
+## 6. Architecture Verification (source audit)
+
+The claimed layering is real and present:
 
 ```
-UI (Jetpack Compose)  →  ViewModel (StateFlow)  →  Repository  →  { RemoteDataSource (Retrofit), LocalDataSource (Room) }
+UI (Compose)  ->  ViewModel  ->  Repository  ->  Local (Room) / Remote (Retrofit)
 ```
 
-- **Kotlin + Jetpack Compose**, single-activity, portrait-first
-- **MVVM** with `ViewModel` + `StateFlow`/`UiState`; networking never touches composables
-- **Repository pattern** with `RemoteDataSource` (Retrofit + OkHttp) and `LocalDataSource` (Room) so offline behaviour is a first-class path, not an error handler
-- **Room** for local persistence: projects, activity, next-action snapshots, capture outbox, connection config
-- **WorkManager** for the sync outbox (reliable retries, respect for constraints)
-- **DataStore (Preferences)** for connection settings (base URL) — not `SharedPreferences`
-- **Hilt** is intentionally avoided to keep the dependency set small and the build reproducible; manual `ServiceLocator`/`AppContainer` is sufficient at this scale
+- **Persistence:** **Room**, not raw SQLite. `CompanionDatabase` (RoomDatabase)
+  with `ProjectEntity`, `ActivityEntity`, `CaptureEntity` + DAOs. The prior
+  report's phrasing ("SQLite entities") was imprecise; the mechanism is Room
+  over SQLite.
+- **API client:** Retrofit + kotlinx.serialization, `StudioApi` interface,
+  base URL sourced from `ConnectionPrefs` (DataStore) — **configurable, no key
+  embedded, no hardcoded production IP**. `localhost` handling is intentional
+  and limited to the configurable dev base URL.
+- **Offline queue:** `CaptureEntity` carries a `sync_state`; the capture
+  repository persists pending captures locally before any network call.
+- **Sync:** `CaptureSyncWorker` (WorkManager) processes the queue with retry;
+  captures are only marked synced after confirmed server success, so failures
+  do not silently delete pending data.
+- **Connection state:** observable via `ConnectionRepository` / `ConnectionPrefs`
+  and surfaced in the UI.
 
 ---
 
-## 7. Offline Requirements
+## 7. API Integration Verification
 
-The companion must stay useful when the workstation is unreachable.
+### Route contract — Android client vs. API server (VERIFIED, source-level)
 
-**Cached locally (Room):**
-- Recently viewed projects and their summaries
-- Project dashboard/progress snapshots
-- Activity pages already fetched
-- Last next-action result (labelled **stale/cached** when shown offline)
-- All captured items (notes/ideas/tasks/questions) — never silently dropped
-- Connection configuration
+| Android (`StudioApi.kt`) | API route (mounted) | Match |
+|---|---|---|
+| `GET /api/health` | `GET /api/v1/health` | partial — see note |
+| `GET /api/v1/projects` | `GET /api/v1/projects` (`projectsRouter.get('/')`) | YES |
+| `GET /api/v1/projects/{id}` | `GET /api/v1/projects/:id` | YES |
+| `GET /api/v1/academic-projects/{id}/dashboard` | `GET /api/v1/academic-projects/:id/dashboard` | YES |
+| `GET /api/v1/activities/project/{projectId}` | `GET /api/v1/activities/project/:projectId` | YES |
+| `GET /api/v1/activities/project/{projectId}/next-action` | `GET /api/v1/activities/project/:projectId/next-action` | YES |
+| `GET /api/v1/research/notes?projectId=` | `GET /api/v1/research/notes` | YES |
+| `POST /api/v1/research/notes` | `POST /api/v1/research/notes` | YES |
 
-**Rules:**
-- Every screen renders from the local cache first when present; network refresh is best-effort
-- Offline data is clearly labelled (badge: `Offline — cached`), never presented as fresh
-- Next action is never invented locally; when offline the last cached value is shown with a "cached" label
-- Capture works fully offline — items land in Room immediately with `PENDING_SYNC` status
+**Note on `/api/health`:** the Android health check targets `/api/health`. This
+is correct — `apps/api/src/index.ts:33` defines `app.get('/api/health', ...)`
+as an app-level alias in addition to the `/api/v1/health` router mount. No
+mismatch.
 
----
+### Runtime API test — PASS (live server)
 
-## 8. Synchronization Requirements
+The API was brought up against a live PostgreSQL instance and every route the
+Android client calls was exercised over HTTP.
 
-Simple deterministic outbox — not a distributed sync engine.
+**Environment brought up for verification:**
+- PostgreSQL 16 (`postgres:16-alpine`, container `icon-academic-pg`) on `localhost:5432`
+- Database `icon_academic_studio` created; `prisma db push` applied the full
+  schema (all tables created, verified via `\dt`)
+- API server (`apps/api`) started on port **4001** (4000 was already occupied by
+  an unrelated `opsvault` container)
 
-- Local captured items get client-generated IDs (`UUID`) created on capture
-- Sync state per item: `SYNCED` / `PENDING_SYNC` / `SYNC_FAILED`
-- On successful POST, mark `SYNCED` and record the server ID
-- On failure, remain `PENDING_SYNC` (retryable) or become `SYNC_FAILED` after repeated failures
-- **Idempotency / duplicate prevention:** the server endpoint accepts an optional `clientId`; a replayed submission returns the original record instead of creating a duplicate
-- Retries are safe because POST is idempotent-by-`clientId`
-- No conflict resolution engine: captured items are append-only, so nothing is ever overwritten silently
+**Live request/response results:**
 
----
+| Endpoint | Result |
+|---|---|
+| `GET /api/health` | **200** — `{status:"ok", version:"0.1.0"}` |
+| `GET /api/v1/health` | **200** — `{status:"ok", service:"icon-academic-studio-api"}` |
+| `GET /api/v1/projects` | **200** — returns array + pagination meta |
+| `GET /api/v1/projects/{id}` | **200** — returns single project with counts |
+| `GET /api/v1/academic-projects/{id}/dashboard` | **200** — progress, counts, validation summary |
+| `GET /api/v1/activities/project/{id}` | **200** — activity feed (records server-side views) |
+| `GET /api/v1/activities/project/{id}/next-action` | **200** — deterministic next action returned |
+| `POST /api/v1/research/notes` | **201** on create |
+| `GET /api/v1/research/notes?projectId=` | **200** — returns persisted notes |
 
-## 9. Security Constraints (carried from Phase 9.1.1)
+### Idempotent sync — PASS (live server)
 
-1. **No authentication exists** — do not fake any. No invented users, no hardcoded user IDs, no trusted `x-user-id`, no client-side ownership claims.
-2. **Never ship provider credentials** (Gemini/OpenAI/OpenRouter/Ollama keys) in the APK.
-3. The app connects only to a **user-configured base URL** on a trusted local network. No hardcoded IPs, no auto-scanning, no cloud.
-4. Use **HTTPS where available**; clearly warn when connecting to plain `http://` (typical for local dev).
-5. Never trust client-supplied authorization metadata; the API validates everything server-side.
-6. No sensitive academic content or credentials in logs. Release builds strip debug logging.
-7. Error surfaces show safe messages, never stack traces.
-8. Local storage of connection config uses DataStore (no secrets beyond a host:port string, which is not sensitive).
+The core offline-safety guarantee was executed end to end:
 
----
+1. POST with `clientId: abc-123-verify-001` → **201**, record created
+   (`cmutb5rm500018t04sgb0uiud`)
+2. POST repeated with the **same** `clientId` → **200**, the **same** record id
+   and createdAt returned. No duplicate was created.
 
-## 10. What Belongs in Phase 10 vs Future Phases
+This is exactly the retry path `CaptureSyncWorker` relies on: a WorkManager
+replay after a network failure cannot create a duplicate note. Verified against
+the running server, not just source inspection.
 
-### In Phase 10
-- Android project scaffold (Gradle wrapper, `compileSdk 34`, `minSdk 26`)
-- Home/Dashboard, Projects list+detail, Mobile Command Center, Activity timeline, Next Action, Quick Capture, Settings/connection management
-- Offline Room cache + WorkManager sync outbox
-- Small, validated server addition: idempotency support for note creation (`clientId`) — reuses `ResearchNote`, **no new model**
-- Deterministic tests: API (validation, isolation, idempotency) + Android unit tests (parsing, offline state, sync queue)
-- `PHASE_10_AUDIT.md`, `PHASE_10_ARCHITECTURE.md`, `ANDROID_COMPANION.md`, README update
+### Validation guards — PASS (live server)
 
-### Explicitly out of scope
-- Public cloud deployment, SaaS accounts, subscriptions, payments
-- Full mobile Document Studio / Data Lab / Publishing Studio
-- New AI providers or speculative AI features; AI review is read-only and never auto-verifies
-- Authentication platform, remote collaboration, chat, social, blockchain
-- Notification infrastructure beyond what the companion's own workflow needs
-
----
-
-## 11. Key Risks
-
-| Risk | Mitigation |
-|------|-----------|
-| Turning local-first API into a public API | User-configured URL only; documented trusted-network assumption |
-| Silent data loss of offline captures | Room write before network; outbox retries until `SYNCED` |
-| Fake security | No auth layer invented; boundary documented honestly |
-| Build unreproducibility | Gradle wrapper, pinned versions, `compileSdk 34` matching installed SDK |
-| Scope creep | Audit-approved scope only (Section 10) |
+| Case | Result |
+|---|---|
+| Missing `title` | **400** `VALIDATION_ERROR` |
+| Non-existent `projectId` | **500** rejected (foreign-key constraint) |
 
 ---
 
-*Audit completed: 2026-10-01*
-*Starting commit: `ab08ca0`*
+## 8. Offline-First Verification
+
+**Server contract: PASS (live).** The idempotency guarantee that the offline
+queue depends on was executed against the running API (§7, "Idempotent sync").
+
+**Android runtime flow: UNVERIFIED.** No emulator was booted. The
+connect → cache → offline capture → queue → reconnect → sync sequence was
+never executed inside a running app. The Android-side mechanisms were validated
+at the source level only:
+
+- `CaptureRepository.capture()` writes to Room **before** any network call
+  (`syncState = SyncState.PENDING`), so a capture is never lost.
+- `CaptureSyncWorker` drains only `SyncState.PENDING` items and returns
+  `Result.retry()` unless **every** item succeeded, so a partial failure does
+  not clear the queue.
+- `pushCaptureWith()` calls `markSynced()` only after a server response
+  containing a real `id`; on any throw or missing id it calls `markFailed()`,
+  so a failed push is preserved rather than deleted.
+- `POST /api/v1/research/notes` is idempotent on `clientId` (verified live, §7),
+  so WorkManager replays cannot duplicate a note.
+- `SyncEnqueuer.enqueueCaptureSync()` uses `enqueueUniqueWork`, so repeated
+  enqueue calls coalesce into one worker rather than stacking.
+
+The reason the emulator was not booted: the host's `node_modules` virtual store
+was corrupted (documented in §7 environment notes) and the time budget was spent
+restoring a runnable API server instead. This is a genuine gap, not an
+assumption.
+
+---
+
+## 9. Security Verification
+
+| Check | Status |
+|---|---|
+| Provider credentials in Android | **NONE** — no Gemini/OpenAI/OpenRouter keys anywhere in `apps/android` |
+| `.env` committed | No — and `.env` is git-ignored |
+| Hardcoded API secrets | None |
+| Fake authentication | None |
+| Public API exposure | None introduced; API bound to localhost only |
+| Unnecessary permissions | None found in `AndroidManifest.xml` |
+| Network security config | Intentional — `network_security_config.xml` scopes cleartext to the configurable dev host only; not broadly enabled |
+| Local data exposing credentials | No — local DB holds app data only |
+| Secret/sensitive logging | None found |
+
+---
+
+## 10. UX Quality Pass (source-level)
+
+Bottom navigation, back navigation, loading/error/empty states, offline and sync
+status, input validation (including API URL validation), and guardrails against
+double-submit are all present. Accessibility content descriptions exist where
+appropriate. No placeholder/demo data is presented as real data.
+
+---
+
+## 11. Documentation
+
+Updated: `docs/PHASE_10_AUDIT.md` (this file) — the Phase 10.1 record.
+Other Phase 10 docs (`ANDROID_COMPANION.md`, `PHASE_10_ARCHITECTURE.md`,
+`PHASE_10_EXECUTIVE.md`) were inspected; their architecture descriptions match
+the actual implementation and required no correction beyond what this record
+captures.
+
+---
+
+## 12. Known Limitations (evidence-backed)
+
+1. **No Android runtime/offline verification.** No emulator was booted. The
+   server-side contract was verified live (§7), and the Android mechanisms were
+   verified at the source level (§8), but the end-to-end offline flow inside a
+   running app is UNVERIFIED.
+2. **No instrumented/UI tests exist** in the Android project. Only the compile
+   and unit-test tasks could be exercised.
+3. **Poppins is not bundled** in the Android app (by design — see §3).
+4. **Verification used a local PostgreSQL + API instance.** The API was run on
+   port 4001 against a locally created database. No production deployment was
+   touched and no credentials were exposed.
+5. **`node_modules` corruption on this host.** The pnpm virtual store had
+   empty package directories (prisma, esbuild, and several transitive deps
+   extracted to nothing). Packages were manually restored into
+   `apps/api/node_modules` and `packages/db/node_modules` from registry
+   tarballs. These are local-only `node_modules` changes and are git-ignored;
+   no committed file was altered to work around this. A clean `pnpm install` on
+   a healthy host should still be run to confirm the lockfile resolves.
