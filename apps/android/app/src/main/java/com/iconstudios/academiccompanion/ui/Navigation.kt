@@ -42,10 +42,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.iconstudios.academiccompanion.AppContainer
 import com.iconstudios.academiccompanion.ui.activity.ActivityScreen
 import com.iconstudios.academiccompanion.ui.activity.ActivityViewModel
@@ -89,8 +91,11 @@ fun NavigationShell(container: AppContainer) {
             composable(Routes.HOME) { HomeScreen(viewModel = viewModel { HomeViewModel(container.studioRepository, container.connectionRepository) }, onProjectClick = { id -> navController.navigate("${Routes.COMMAND_CENTER}/$id") }) }
             composable(Routes.PROJECTS) { ProjectsScreen(viewModel = viewModel { ProjectsViewModel(container.studioRepository) }, onProjectClick = { id -> navController.navigate("${Routes.COMMAND_CENTER}/$id") }) }
             composable(Routes.CAPTURE) { CaptureScreen(viewModel = viewModel { CaptureViewModel(container.captureRepository, container.studioRepository, container.appContext) }) }
-            composable("activity/{projectId}") { backStackEntry ->
-                val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            composable(
+                route = Routes.ACTIVITY,
+                arguments = listOf(navArgument("projectId") { type = NavType.StringType; nullable = true; defaultValue = null }),
+            ) { backStackEntry ->
+                val projectId = backStackEntry.arguments?.getString("projectId")
                 ActivityScreen(projectId = projectId, viewModel = viewModel { ActivityViewModel(container.studioRepository) })
             }
             composable("command-center/{projectId}") { backStackEntry ->
@@ -129,7 +134,7 @@ private val SCREENS = listOf(
     NavBarRoute("Home", Icons.Default.Home, Routes.HOME),
     NavBarRoute("Projects", Icons.Default.List, Routes.PROJECTS),
     NavBarRoute("Capture", Icons.Default.Add, Routes.CAPTURE),
-    NavBarRoute("Activity", Icons.Default.History, Routes.ACTIVITY.replace("/{projectId}", "")),
+    NavBarRoute("Activity", Icons.Default.History, Routes.ACTIVITY),
     NavBarRoute("Settings", Icons.Default.Settings, Routes.SETTINGS),
 )
 

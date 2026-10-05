@@ -41,7 +41,7 @@ import com.iconstudios.academiccompanion.ui.LoadingBlock
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ActivityScreen(projectId: String, viewModel: ActivityViewModel) {
+fun ActivityScreen(projectId: String?, viewModel: ActivityViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(projectId) { viewModel.load(projectId) }

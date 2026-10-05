@@ -7,6 +7,7 @@ import com.iconstudios.academiccompanion.data.repository.StudioRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -32,16 +33,26 @@ class ActivityViewModel(
     private var offset = 0
     private val pageSize = 20
 
-    fun load(projectId: String) {
+    fun load(projectId: String?) {
         this.projectId = projectId
         this.offset = 0
         viewModelScope.launch {
             // Cached pages render immediately.
             _state.value = _state.value.copy(loading = true)
-            val cached = studioRepository.getCachedActivityPage(projectId, pageSize, 0)
+            val cached = projectId?.let { studioRepository.getCachedActivityPage(it, pageSize, 0) } ?: emptyList()
             _state.value = _state.value.copy(events = cached, loading = false)
         }
-        refresh()
+        if (projectId != null) {
+            refresh()
+        } else {
+            // Top-level Activity tab: no project is selected, so resolve the most
+            // recently updated cached project and show its activity feed.
+            viewModelScope.launch {
+                val id = studioRepository.observeProjects().first().maxByOrNull { it.updatedAt }?.id
+                this@ActivityViewModel.projectId = id
+                if (id != null) refresh()
+            }
+        }
     }
 
     fun refresh() {
