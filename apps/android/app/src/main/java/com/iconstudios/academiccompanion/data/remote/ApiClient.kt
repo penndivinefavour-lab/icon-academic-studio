@@ -23,7 +23,7 @@ object ApiClient {
     }
 
     /**
-     * @param baseUrl user-supplied Studio API root, e.g. `http://192.168.1.20:4000`.
+     * @param baseUrl user-supplied Studio API root, e.g. `http://192.168.1.20:4001`.
      *                Must be non-empty and end with `/` for Retrofit.
      */
     fun create(baseUrl: String): StudioApi {
@@ -56,7 +56,7 @@ object ApiClient {
 
     private fun normalizeBaseUrl(baseUrl: String): String {
         var v = baseUrl.trim()
-        if (v.isEmpty()) return "http://localhost:4000/"
+        if (v.isEmpty()) return "http://localhost:4001/"
         if (!v.endsWith("/")) v += "/"
         return v
     }

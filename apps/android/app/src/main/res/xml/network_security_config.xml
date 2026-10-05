@@ -4,13 +4,23 @@
       ICON Academic Companion connects to a user-configured Studio API URL,
       typically a workstation on a trusted local network over plain HTTP.
 
-      Explicit cleartext is permitted ONLY for private/local address ranges so
-      users can reach a dev workstation. Public hosts must still use HTTPS.
+      SECURITY MODEL: the Studio API has no authentication (Phase 9.1.1); the
+      app relies entirely on the user pointing it at their own trusted
+      workstation, which they enter explicitly in Settings. This endpoint is
+      the app's ONLY network destination — there are no third-party or public
+      API calls, so cleartext here cannot leak traffic the app does not make.
+
+      Android's network-security-config has no support for IP address ranges:
+      <domain> entries match literal hostnames only, so entries like
+      192.168.0.0 do NOT cover 192.168.1.20. Because the target host is chosen
+      by the user at runtime (not fixed at build time), it cannot be enumerated
+      here. The narrowest Android-supported configuration that still permits
+      the intended configurable local development endpoint is therefore a
+      base-config that allows cleartext for this app's own traffic.
     -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">10.0.0.0</domain>
-        <domain includeSubdomains="false">172.16.0.0</domain>
-        <domain includeSubdomains="false">192.168.0.0</domain>
-        <domain includeSubdomains="true">localhost</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
 </network-security-config>

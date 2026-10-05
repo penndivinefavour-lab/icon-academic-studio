@@ -67,7 +67,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                             color = MaterialTheme.colorScheme.error,
                         )
                     } else {
-                        Text("e.g. http://192.168.1.20:4000 or https://your-server.com")
+                        Text("e.g. http://192.168.1.20:4001 or https://your-server.com")
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),

@@ -40,7 +40,7 @@ class ConnectionPrefs(private val context: Context) {
     }
 
     companion object {
-        const val DEFAULT_URL = "http://localhost:4000"
+        const val DEFAULT_URL = "http://localhost:4001"
         const val STATUS_CONNECTED = "CONNECTED"
         const val STATUS_DISCONNECTED = "DISCONNECTED"
         const val STATUS_CHECKING = "CHECKING"
