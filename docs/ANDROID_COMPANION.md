@@ -8,6 +8,23 @@ ICON Academic Studio — Android companion app for mobile monitoring, capture, a
 
 ### Connection model
 
+- **Base URL is user-configurable** in Settings; the default is
+  `http://localhost:4001`. Set it to your workstation's LAN address
+  (e.g. `http://192.168.1.200:4001`) — on a phone, `localhost` resolves to the
+  handset itself.
+- The Studio API serves on port **4001**, not 4000. It binds `0.0.0.0:4001`,
+  so it is reachable from the LAN once the URL points at the workstation.
+- `network_security_config.xml` permits cleartext via a `base-config`. Android
+  `<domain>` entries match literal hostnames only (they cannot express IP
+  ranges), and the target host is chosen by the user at runtime, so it cannot
+  be enumerated at build time. Cleartext is acceptable here only because the
+  Studio API is unauthenticated by design (Phase 9.1.1) and is the app's sole
+  network destination.
+- The capture → sync path is durable: Room write first, then a WorkManager
+  one-time unique work (`capture-sync`, `ExistingWorkPolicy.KEEP`) constrained
+  to `NetworkType.CONNECTED`. `POST /api/v1/research/notes` is idempotent by
+  `clientId`, so retries cannot duplicate a capture.
+
 ```
 ┌─────────────────────────────┐          ┌──────────────────────────────┐
 │  Android Companion          │          │  Workstation (trusted LAN)    │
@@ -89,6 +106,16 @@ implement `androidx.work.Configuration.Provider`.
 > when the icon was tapped). Fixed in `bbe06f3` by implementing
 > `Configuration.Provider`. If the initializer metadata is ever removed again,
 > the Application **must** keep supplying the configuration.
+
+> Root cause of the Activity-tab crash: the bottom navigation navigated to the
+> route `activity` (the constant with its argument stripped), while the only
+> activity destination in the `NavHost` was `activity/{projectId}`. Navigation
+> Compose throws `IllegalArgumentException` for an unmatched destination, so
+> the app died the instant the Activity tab was tapped. Fixed in `fc4355c` by
+> declaring the `projectId` argument with a nullable default, so the same
+> destination serves both the top-level tab and project-scoped deep links.
+> With no project selected the screen shows the most recently updated cached
+> project's feed, or the empty state if the cache holds none.
 
 ---
 
