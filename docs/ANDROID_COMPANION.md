@@ -74,6 +74,22 @@ The companion is a **mobile lens** into an already-trusted local setup. Users po
 
 Nothing is ever silently dropped or overwritten.
 
+### WorkManager initialization
+
+`AndroidManifest.xml` removes the default `androidx.work.WorkManagerInitializer`
+so that WorkManager initializes on demand (the recommended approach for
+WorkManager 2.9.x). That on-demand path requires the `Application` class to
+implement `androidx.work.Configuration.Provider`.
+
+> Root cause of the v0.1.0-alpha launch failure: `IconCompanionApp` did not
+> implement `Configuration.Provider`. The first `WorkManager.getInstance()`
+> call — issued from `IconCompanionApp.onCreate()` before any Activity was
+> created — threw `IllegalStateException: WorkManager is not initialized
+> properly`, killing the process on every launch (the app closed immediately
+> when the icon was tapped). Fixed in `bbe06f3` by implementing
+> `Configuration.Provider`. If the initializer metadata is ever removed again,
+> the Application **must** keep supplying the configuration.
+
 ---
 
 ## Security Guarantees
