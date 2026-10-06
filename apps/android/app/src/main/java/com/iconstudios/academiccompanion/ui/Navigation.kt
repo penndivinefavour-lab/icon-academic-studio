@@ -70,6 +70,19 @@ object Routes {
     const val CAPTURE = "capture"
     const val ACTIVITY = "activity/{projectId}"
     const val COMMAND_CENTER = "command-center/{projectId}"
+
+    /**
+     * Argument-free prefix of [COMMAND_CENTER]. Use this to build a concrete
+     * destination: `"${Routes.COMMAND_CENTER_PREFIX}$projectId"`.
+     *
+     * A common bug here was string-interpolating the *route template*
+     * (`"command-center/{projectId}"`) plus the id, producing
+     * `"command-center/{projectId}/<id>"`, which matches no NavHost
+     * destination and crashes with IllegalArgumentException at runtime.
+     * [COMMAND_CENTER] is the registered destination pattern; it must never
+     * be used as a navigation target itself.
+     */
+    const val COMMAND_CENTER_PREFIX = "command-center/"
     const val SETTINGS = "settings"
 }
 
@@ -88,8 +101,8 @@ fun NavigationShell(container: AppContainer) {
             startDestination = Routes.HOME,
             modifier = Modifier.fillMaxSize().padding(inner),
         ) {
-            composable(Routes.HOME) { HomeScreen(viewModel = viewModel { HomeViewModel(container.studioRepository, container.connectionRepository) }, onProjectClick = { id -> navController.navigate("${Routes.COMMAND_CENTER}/$id") }) }
-            composable(Routes.PROJECTS) { ProjectsScreen(viewModel = viewModel { ProjectsViewModel(container.studioRepository) }, onProjectClick = { id -> navController.navigate("${Routes.COMMAND_CENTER}/$id") }) }
+            composable(Routes.HOME) { HomeScreen(viewModel = viewModel { HomeViewModel(container.studioRepository, container.connectionRepository) }, onProjectClick = { id -> navController.navigate(Routes.COMMAND_CENTER_PREFIX + id) }) }
+            composable(Routes.PROJECTS) { ProjectsScreen(viewModel = viewModel { ProjectsViewModel(container.studioRepository) }, onProjectClick = { id -> navController.navigate(Routes.COMMAND_CENTER_PREFIX + id) }) }
             composable(Routes.CAPTURE) { CaptureScreen(viewModel = viewModel { CaptureViewModel(container.captureRepository, container.studioRepository, container.appContext) }) }
             composable(
                 route = Routes.ACTIVITY,
